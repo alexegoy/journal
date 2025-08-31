@@ -23,6 +23,12 @@
     body.dark .btn { border-color: rgba(255,255,255,0.06); color:#f1f5f9; background:#1e293b; border:1px solid rgba(255,255,255,0.12); }
     body.dark .btn:hover { background:#334155; }
 
+    /* ---------- Tabs ---------- */
+    .tabs { display:flex; gap:8px; margin-bottom:12px; }
+    .tab { padding:8px 12px; border-radius:8px; cursor:pointer; background:transparent; border:1px solid transparent; }
+    .tab.active { background:var(--card); border-color:rgba(15,23,42,0.06); }
+    body.dark .tab.active { border-color: rgba(255,255,255,0.06); }
+
     /* ---------- Calendar grid ---------- */
     .calendar-container { display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
     .weekday { text-align:center; font-size:12px; color:var(--muted); }
@@ -102,12 +108,18 @@
     body.dark .weekly-card.loss { background:#7f1d1d; color:#fecaca; }
     body.dark .weekly-card.neutral { background:#1e3a8a; color:#bfdbfe; }
 
+    /* ---------- Charts ---------- */
+    .charts-grid { display:flex; gap:12px; flex-wrap:wrap; }
+    .chart-card { background:var(--card); padding:12px; border-radius:10px; box-shadow:0 8px 20px rgba(2,6,23,0.06); flex:1 1 320px; }
+    canvas { width:100% !important; height:260px !important; }
+
     /* ---------- Misc ---------- */
     .muted { color:var(--muted); font-size:13px; }
     hr { border:none; border-top:1px solid rgba(15,23,42,0.06); margin:12px 0; }
     body.dark hr { border-top-color: rgba(255,255,255,0.04); }
 
     #toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#16a34a; color:white; padding:8px 12px; border-radius:8px; display:none; z-index:1300; }
+    .hidden-file { display:none; }
   </style>
 </head>
 <body>
@@ -123,91 +135,123 @@
     <button class="btn side-btn" onclick="nextMonth()">▶</button>
   </div>
 
-  <!-- Weekday headers -->
-  <div class="calendar-container" id="weekdays"></div>
-
-  <!-- Calendar grid -->
-  <div class="calendar-container" id="calendar"></div>
-
-  <!-- Stats -->
-  <div class="stats">
-    <div class="stat"><div class="stat-label">Monthly P&L</div><div id="totalPnl" class="stat-value">0.00</div></div>
-    <div class="stat"><div class="stat-label">Trades</div><div id="totalTrades" class="stat-value">0</div></div>
-    <div class="stat"><div class="stat-label">Wins</div><div id="wins" class="stat-value">0</div></div>
-    <div class="stat"><div class="stat-label">Losses</div><div id="losses" class="stat-value">0</div></div>
-    <div class="stat"><div class="stat-label">Win Rate</div><div id="winRate" class="stat-value">0%</div></div>
-    <div style="margin-left:auto"><button class="btn" onclick="toggleDarkMode()">🌙</button></div>
+  <!-- Tabs -->
+  <div class="tabs">
+    <div id="tabJournal" class="tab active" onclick="switchTab('journal')">Journal</div>
+    <div id="tabCharts" class="tab" onclick="switchTab('charts')">Charts</div>
   </div>
 
-  <!-- Weekly performance -->
-  <h3 style="margin-top:18px;">📈 Weekly Performance</h3>
-  <div id="weeklyStats"></div>
+  <!-- Journal tab -->
+  <div id="journalTab">
+    <!-- Weekday headers -->
+    <div class="calendar-container" id="weekdays"></div>
 
-  <!-- DAILY modal (Add/Edit trades) -->
-  <div class="modal" id="modal" aria-hidden="true">
-    <div class="sheet" role="dialog" aria-modal="true">
-      <h3 id="modalDate">Date</h3>
+    <!-- Calendar grid -->
+    <div class="calendar-container" id="calendar"></div>
 
-      <select id="symbolSelect" aria-label="Favorite symbols"></select>
-      <input id="inputSymbol" placeholder="Or type custom symbol (e.g. XAUUSD)" autocomplete="off" />
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Monthly P&L</div><div id="totalPnl" class="stat-value">0.00</div></div>
+      <div class="stat"><div class="stat-label">Trades</div><div id="totalTrades" class="stat-value">0</div></div>
+      <div class="stat"><div class="stat-label">Wins</div><div id="wins" class="stat-value">0</div></div>
+      <div class="stat"><div class="stat-label">Losses</div><div id="losses" class="stat-value">0</div></div>
+      <div class="stat"><div class="stat-label">Win Rate</div><div id="winRate" class="stat-value">0%</div></div>
 
-      <input id="inputPnl" type="number" placeholder="P&L" step="0.01" />
-
-      <div id="resultBtns">
-        <button class="btn result" data-result="win">Win</button>
-        <button class="btn result" data-result="loss">Loss</button>
-        <button class="btn result" data-result="be">Break-even</button>
+      <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+        <button class="btn" onclick="toggleDarkMode()">🌙</button>
+        <button class="btn" onclick="exportCSV()">⇩ CSV</button>
+        <button class="btn" onclick="exportJSON()">⇩ JSON</button>
+        <button class="btn" onclick="document.getElementById('importJson').click()">⇪ Import JSON</button>
+        <input id="importJson" type="file" accept="application/json" class="hidden-file" onchange="importJSON(this)" />
       </div>
+    </div>
 
-      <textarea id="inputNotes" placeholder="Notes..." rows="3"></textarea>
+    <!-- Weekly performance -->
+    <h3 style="margin-top:18px;">📈 Weekly Performance</h3>
+    <div id="weeklyStats"></div>
 
-      <div style="display:flex;gap:8px;max-width:420px;margin:0 auto 8px;">
-        <button class="btn" style="flex:1" onclick="saveTrade()">💾 Save</button>
-        <button class="btn" style="flex:1" onclick="closeModal()">✖ Close</button>
-      </div>
+    <!-- DAILY modal (Add/Edit trades) -->
+    <div class="modal" id="modal" aria-hidden="true">
+      <div class="sheet" role="dialog" aria-modal="true">
+        <h3 id="modalDate">Date</h3>
 
-      <div class="favorites-box" style="max-width:420px;margin:0 auto 10px;">
-        <button class="btn" style="width:100%" onclick="toggleFavoritesManager()">⚙ Manage Favorites</button>
-      </div>
+        <select id="symbolSelect" aria-label="Favorite symbols"></select>
+        <input id="inputSymbol" placeholder="Or type custom symbol (e.g. XAUUSD)" autocomplete="off" />
 
-      <div class="favorites-box" id="favoritesBox" style="display:none;">
-        <input id="newFavorite" placeholder="Add new favorite symbol (e.g. GBPJPY)" />
-        <div style="display:flex;gap:8px;margin:8px 0 12px;">
-          <button class="btn" onclick="addFavorite()">Add</button>
-          <button class="btn" onclick="toggleFavoritesManager()">Close</button>
+        <input id="inputPnl" type="number" placeholder="P&L" step="0.01" />
+
+        <div id="resultBtns">
+          <button class="btn result" data-result="win">Win</button>
+          <button class="btn result" data-result="loss">Loss</button>
+          <button class="btn result" data-result="be">Break-even</button>
         </div>
-        <div id="favoritesList"></div>
+
+        <textarea id="inputNotes" placeholder="Notes..." rows="3"></textarea>
+
+        <div style="display:flex;gap:8px;max-width:420px;margin:0 auto 8px;">
+          <button class="btn" style="flex:1" onclick="saveTrade()">💾 Save</button>
+          <button class="btn" style="flex:1" onclick="closeModal()">✖ Close</button>
+        </div>
+
+        <div class="favorites-box" style="max-width:420px;margin:0 auto 10px;">
+          <button class="btn" style="width:100%" onclick="toggleFavoritesManager()">⚙ Manage Favorites</button>
+        </div>
+
+        <div class="favorites-box" id="favoritesBox" style="display:none;">
+          <input id="newFavorite" placeholder="Add new favorite symbol (e.g. GBPJPY)" />
+          <div style="display:flex;gap:8px;margin:8px 0 12px;">
+            <button class="btn" onclick="addFavorite()">Add</button>
+            <button class="btn" onclick="toggleFavoritesManager()">Close</button>
+          </div>
+          <div id="favoritesList"></div>
+        </div>
+
+        <div id="dailySummary" class="daily-summary neutral">No trades yet.</div>
+
+        <hr />
+
+        <div id="tradeList"></div>
       </div>
-
-      <div id="dailySummary" class="daily-summary neutral">No trades yet.</div>
-
-      <hr />
-
-      <div id="tradeList"></div>
     </div>
+
+    <!-- WEEKLY modal -->
+    <div class="modal" id="weeklyModal" aria-hidden="true">
+      <div class="sheet" role="dialog" aria-modal="true">
+        <h3 id="weeklyModalTitle">Weekly Trades</h3>
+        <div id="weeklySummary" class="daily-summary neutral"></div>
+        <hr />
+        <div id="weeklyTradeList"></div>
+
+        <!-- Capital input -->
+        <div style="margin-top:12px;">
+          <label for="weeklyCapitalInput" class="stat-label">Starting Capital</label>
+          <input id="weeklyCapitalInput" type="number" placeholder="e.g. 10000" step="0.01" onblur="saveWeeklyCapital()" />
+        </div>
+
+        <button class="btn" style="margin-top:12px;width:100%" onclick="closeWeeklyModal()">✖ Close</button>
+        <button class="btn" style="margin-top:8px;width:100%" onclick="generateGeminiWeeklyReport()">🤖 Generate Gemini AI Report</button>
+        <div id="aiWeeklyReport" style="margin-top:12px; font-size:14px; line-height:1.5;"></div>
+      </div>
+    </div>
+
+    <div id="toast"></div>
   </div>
 
-  <!-- WEEKLY modal -->
-  <div class="modal" id="weeklyModal" aria-hidden="true">
-    <div class="sheet" role="dialog" aria-modal="true">
-      <h3 id="weeklyModalTitle">Weekly Trades</h3>
-      <div id="weeklySummary" class="daily-summary neutral"></div>
-      <hr />
-      <div id="weeklyTradeList"></div>
-
-      <!-- Capital input -->
-      <div style="margin-top:12px;">
-        <label for="weeklyCapitalInput" class="stat-label">Starting Capital</label>
-        <input id="weeklyCapitalInput" type="number" placeholder="e.g. 10000" step="0.01" onblur="saveWeeklyCapital()" />
+  <!-- Charts tab -->
+  <div id="chartsTab" style="display:none">
+    <h3>Charts (View only)</h3>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h4>Equity Curve (Cumulative P&L)</h4>
+        <canvas id="equityChart"></canvas>
       </div>
-
-      <button class="btn" style="margin-top:12px;width:100%" onclick="closeWeeklyModal()">✖ Close</button>
-      <button class="btn" style="margin-top:8px;width:100%" onclick="generateGeminiWeeklyReport()">🤖 Generate Gemini AI Report</button>
-      <div id="aiWeeklyReport" style="margin-top:12px; font-size:14px; line-height:1.5;"></div>
+      <div class="chart-card">
+        <h4>Results Distribution</h4>
+        <canvas id="pieChart"></canvas>
+      </div>
     </div>
+    <div style="margin-top:12px;" class="muted">Charts update live as you add / edit / delete trades. Journal tab remains default.</div>
   </div>
-
-  <div id="toast"></div>
 
 <script>
 /* ================= Data / State ================= */
@@ -229,6 +273,10 @@ let editingId = null;
 // store week range for Gemini (used by modal Generate button)
 let currentWeekRange = { start: null, end: null, summary: "", weekKey: null };
 
+// Charts instances
+let equityChart = null;
+let pieChart = null;
+
 /* ================= Helpers: local date strings ================= */
 function pad(n){ return String(n).padStart(2,"0"); }
 function formatDateLocal(d){
@@ -248,6 +296,15 @@ function sundayOfWeekLocal(d){
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate()+6);
   return sunday;
+}
+
+/* ================= Tabs ================= */
+function switchTab(name){
+  document.getElementById("journalTab").style.display = name === "journal" ? "" : "none";
+  document.getElementById("chartsTab").style.display = name === "charts" ? "" : "none";
+  document.getElementById("tabJournal").classList.toggle("active", name === "journal");
+  document.getElementById("tabCharts").classList.toggle("active", name === "charts");
+  if(name === "charts") renderCharts();
 }
 
 /* ================= Calendar rendering ================= */
@@ -290,6 +347,8 @@ function renderCalendar() {
   }
   renderStats();
   renderWeeklyStats();
+  // update charts live
+  renderCharts();
 }
 
 /* ================= Monthly stats ================= */
@@ -571,6 +630,70 @@ function saveTrade(){
   resetInputs();
 }
 
+/* ================= Export / Import ================= */
+function exportCSV(){
+  if(!trades || !trades.length){ showToast("No trades to export"); return; }
+  const headers = ["id","date","symbol","result","pnl","notes"];
+  const rows = trades.map(t => headers.map(h => {
+    let v = t[h]==null ? "" : String(t[h]).replace(/"/g,'""');
+    return `"${v}"`;
+  }).join(","));
+  const csv = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], {type: "text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "journal_export.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("CSV exported");
+}
+
+function exportJSON(){
+  if(!trades || !trades.length){ showToast("No trades to export"); return; }
+  const blob = new Blob([JSON.stringify(trades, null, 2)], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "journal_export.json";
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast("JSON exported");
+}
+
+function importJSON(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try {
+      const obj = JSON.parse(e.target.result);
+      if(!Array.isArray(obj)) { alert("Invalid JSON file: expected an array of trades."); return; }
+      // Replace existing trades with imported (user asked simple import)
+      trades = obj.map(t => {
+        // ensure required fields exist
+        return {
+          id: t.id ? String(t.id) : Date.now().toString() + Math.random().toString(36).slice(2,8),
+          date: t.date || formatDate(new Date()),
+          symbol: t.symbol || "NA",
+          result: t.result || "be",
+          pnl: Number(t.pnl) || 0,
+          notes: t.notes || ""
+        };
+      });
+      localStorage.setItem("journal", JSON.stringify(trades));
+      renderCalendar();
+      showToast("JSON imported");
+    } catch(err){
+      alert("Failed to import JSON: " + err.message);
+    } finally {
+      input.value = "";
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ================= Render trade list / summary ================= */
 function renderTradeList(){
   const list = document.getElementById("tradeList");
   list.innerHTML = "";
@@ -858,7 +981,7 @@ async function generateGeminiWeeklyReport(weekStart, weekEnd, shortSummary, week
     const resp = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+    body: JSON.stringify(body)
     });
 
     const data = await resp.json();
@@ -881,6 +1004,88 @@ async function generateGeminiWeeklyReport(weekStart, weekEnd, shortSummary, week
   }
 }
 
+/* ================= Charts rendering ================= */
+function aggregateByDateAllTrades() {
+  // produce sorted dates and cumulative pnl
+  const map = {};
+  const dates = Array.from(new Set(trades.map(t => t.date))).sort();
+  dates.forEach(d => {
+    map[d] = trades.filter(t => t.date <= d).reduce((a,b)=>a+Number(b.pnl),0);
+  });
+  const labels = Object.keys(map).sort();
+  const values = labels.map(l => map[l]);
+  return { labels, values };
+}
+
+function buildResultsDistribution() {
+  const counts = { win:0, loss:0, be:0 };
+  trades.forEach(t => {
+    if(t.result === "win") counts.win++;
+    else if(t.result === "loss") counts.loss++;
+    else counts.be++;
+  });
+  return counts;
+}
+
+function renderCharts() {
+  // load Chart.js if not loaded
+  if (typeof Chart === "undefined") {
+    // Chart.js CDN loaded dynamically
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/chart.js";
+    s.onload = () => { renderCharts(); };
+    document.head.appendChild(s);
+    return;
+  }
+
+  const eq = aggregateByDateAllTrades();
+  const res = buildResultsDistribution();
+
+  // Equity chart
+  const ctxEq = document.getElementById("equityChart").getContext("2d");
+  if(equityChart) equityChart.destroy();
+  equityChart = new Chart(ctxEq, {
+    type: "line",
+    data: {
+      labels: eq.labels,
+      datasets: [{
+        label: "Cumulative P&L",
+        data: eq.values,
+        fill: false,
+        tension: 0.2,
+        borderWidth: 2,
+        pointRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: true },
+        y: { display: true }
+      }
+    }
+  });
+
+  // Pie chart
+  const ctxPie = document.getElementById("pieChart").getContext("2d");
+  if(pieChart) pieChart.destroy();
+  pieChart = new Chart(ctxPie, {
+    type: "pie",
+    data: {
+      labels: ["Wins","Losses","Break-even"],
+      datasets: [{
+        data: [res.win, res.loss, res.be],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: "bottom" } }
+    }
+  });
+}
+
 /* ================= Init / Event listeners ================= */
 document.addEventListener("DOMContentLoaded", () => {
   // result toggle buttons
@@ -901,6 +1106,8 @@ document.addEventListener("DOMContentLoaded", () => {
   renderFavoritesDropdown();
   renderWeekdays();
   renderCalendar();
+  // default tab is journal
+  switchTab("journal");
 });
 </script>
 </body>
