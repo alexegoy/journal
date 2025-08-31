@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trading Journal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-light: #f8fafc;
+      --bg-dark: #0f172a;
+      --card-light: #ffffff;
+      --card-dark: #1e293b;
+      --muted-light: #64748b;
+      --muted-dark: #cbd5e1;
+      --accent: #2563eb;
+      --green: #16a34a;
+      --red: #ef4444;
+      --gray: #94a3b8;
+    }
+    *{box-sizing:border-box}
+    body {
+      font-family: 'Inter', sans-serif;
+      margin:0; padding:12px;
+      background: var(--bg-light);
+      color:#0f172a;
+      transition:0.3s;
+    }
+    body.dark {background: var(--bg-dark);color:#f1f5f9;}
+    .topbar {display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+    .title {text-align:center;flex:1;}
+    .title h1{margin:0;font-size:18px;}
+    .btn {padding:6px 10px;border-radius:8px;border:1px solid #ddd;background:var(--card-light);cursor:pointer;transition:0.2s;}
+    .btn:active {transform:scale(0.95);}
+    body.dark .btn {background:var(--card-dark);color:#f1f5f9;}
+
+    /* Calendar */
+    .calendar-container {display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+    .weekday {text-align:center;font-size:12px;color:var(--muted-light);}
+    body.dark .weekday {color:var(--muted-dark);}
+    .day {
+      background:var(--card-light);
+      border-radius:10px;
+      min-height:92px;
+      padding:8px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.1);
+      cursor:pointer;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    body.dark .day {background:var(--card-dark);}
+    body.dark .day.glow-green { box-shadow: 0 0 12px rgba(22,163,74,0.6);}
+    body.dark .day.glow-red { box-shadow: 0 0 12px rgba(239,68,68,0.6);}
+    .day.empty {background:transparent !important;box-shadow:none !important;pointer-events:none;}
+    .day.weekend {background:#e2e8f0 !important;cursor:default;}
+    body.dark .day.weekend {background:#334155 !important;}
+
+    .day-number {font-weight:700;}
+    .pnl {font-weight:700;font-size:13px;text-align:right;}
+    .pnl.positive{color:var(--green)}
+    .pnl.negative{color:var(--red)}
+    .winrate {font-size:11px;text-align:right;color:var(--muted-light);}
+    body.dark .winrate {color:var(--muted-dark);}
+
+    /* Stats */
+    .stats {margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;background:var(--card-light);padding:10px;border-radius:10px;}
+    body.dark .stats{background:var(--card-dark);}
+    .stat-item {font-size:14px;font-weight:700;}
+    .stat-label{font-size:12px;color:var(--muted-light);}
+    body.dark .stat-label{color:var(--muted-dark);}
+
+    /* Modal */
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);}
+    .modal.show{display:flex;}
+    .sheet{background:var(--card-light);padding:12px;border-radius:10px;max-width:400px;width:100%;}
+    body.dark .sheet{background:var(--card-dark);color:#f1f5f9;}
+    input,textarea{width:100%;margin-bottom:8px;padding:6px;border:1px solid #ccc;border-radius:6px;}
+    body.dark input,body.dark textarea{background:#0f172a;color:#f1f5f9;border:1px solid #334155;}
+
+    /* Weekly summary */
+    .week-summary {
+      grid-column: span 7;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      margin: 4px 0;
+      padding: 6px;
+      border-radius: 8px;
+      background: #f1f5f9;
+    }
+    body.dark .week-summary {background:#1e293b;}
+    .week-summary.positive {color: var(--green);}
+    .week-summary.negative {color: var(--red);}
+    .week-summary.neutral {color: var(--gray);}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <button class="btn" onclick="prevMonth()">◀</button>
+    <div class="title"><h1>Trading Journal</h1><div id="monthLabel"></div></div>
+    <button class="btn" onclick="nextMonth()">▶</button>
+  </div>
+
+  <div class="calendar-container" id="weekdays"></div>
+  <div class="calendar-container" id="calendar"></div>
+
+  <div class="stats">
+    <div><div class="stat-label">Monthly P&L</div><div class="stat-item" id="totalPnl">0.00</div></div>
+    <div><div class="stat-label">Trades</div><div class="stat-item" id="totalTrades">0</div></div>
+    <div><div class="stat-label">Wins</div><div class="stat-item" id="wins">0</div></div>
+    <div><div class="stat-label">Losses</div><div class="stat-item" id="losses">0</div></div>
+    <div><div class="stat-label">Win Rate</div><div class="stat-item" id="winRate">0%</div></div>
+    <button class="btn" onclick="toggleDarkMode()">🌙</button>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="modal">
+    <div class="sheet">
+      <h3 id="modalDate">Date</h3>
+      <input id="inputSymbol" placeholder="Symbol" />
+      <input id="inputPnl" type="number" placeholder="P&L" />
+      <div id="resultBtns">
+        <button class="btn" data-result="win">Win</button>
+        <button class="btn" data-result="loss">Loss</button>
+        <button class="btn" data-result="be">Break-even</button>
+      </div>
+      <textarea id="inputNotes" placeholder="Notes..."></textarea>
+      <button onclick="saveTrade()">Save</button>
+      <button onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
+<script>
+const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const WEEKDAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+let trades=JSON.parse(localStorage.getItem("journal")||"[]");
+let today=new Date();let currentMonth=today.getMonth();let currentYear=today.getFullYear();
+let selectedDate=null;let selectedResult=null;
+
+function renderWeekdays(){
+  document.getElementById("weekdays").innerHTML=WEEKDAYS.map(d=>`<div class='weekday'>${d}</div>`).join("");
+}
+
+function renderCalendar(){
+  const cal=document.getElementById("calendar");
+  cal.innerHTML="";
+  document.getElementById("monthLabel").innerText=MONTHS[currentMonth]+" "+currentYear;
+
+  const firstDow=new Date(currentYear,currentMonth,1).getDay();
+  const daysInMonth=new Date(currentYear,currentMonth+1,0).getDate();
+
+  let weekPnl=0, weekWins=0, weekTotal=0;
+
+  for(let i=0;i<firstDow;i++){ cal.innerHTML+="<div class='day empty'></div>"; }
+
+  for(let d=1; d<=daysInMonth; d++){
+    const key=`${currentYear}-${String(currentMonth+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+    const dayTrades=trades.filter(t=>t.date===key);
+    const pnl=dayTrades.reduce((a,t)=>a+Number(t.pnl),0);
+    const wins=dayTrades.filter(t=>t.result==="win").length;
+    const total=dayTrades.length;
+    const rate=total?Math.round(wins/total*100):0;
+    const dow=new Date(currentYear,currentMonth,d).getDay();
+
+    const glow=pnl>0?"glow-green":pnl<0?"glow-red":"";
+    const weekendClass=(dow===0||dow===6)?"weekend":"";
+
+    cal.innerHTML+=`
+      <div class="day ${glow} ${weekendClass}" onclick="${dow===0||dow===6?'':`openModal('${key}')`}">
+        <div class="day-number">${d}</div>
+        <div class="pnl ${pnl>0?'positive':pnl<0?'negative':''}">${pnl?(pnl>0?"+":"")+pnl.toFixed(2):""}</div>
+        <div class="winrate">${total?(rate+"% WR"):""}</div>
+      </div>
+    `;
+
+    if(dow>=1 && dow<=5){
+      weekPnl+=pnl; weekWins+=wins; weekTotal+=total;
+    }
+
+    if(dow===5 || d===daysInMonth){
+      const cls = weekPnl>0 ? "positive" : weekPnl<0 ? "negative" : "neutral";
+      const weekRate = weekTotal ? Math.round(weekWins/weekTotal*100) : 0;
+      cal.innerHTML+=`<div class="week-summary ${cls}">Weekly P&L: ${(weekPnl>=0?"+":"")+weekPnl.toFixed(2)} | WinRate: ${weekRate}%</div>`;
+      weekPnl=0; weekWins=0; weekTotal=0;
+    }
+  }
+  renderStats();
+}
+
+function renderStats(){
+  const monthTrades = trades.filter(t=>{
+    const d = new Date(t.date);
+    return d.getMonth()===currentMonth && d.getFullYear()===currentYear;
+  });
+  const pnl=monthTrades.reduce((a,t)=>a+Number(t.pnl),0);
+  const wins=monthTrades.filter(t=>t.result==="win").length;
+  const losses=monthTrades.filter(t=>t.result==="loss").length;
+  const total=monthTrades.length;
+  const rate=total?Math.round(wins/total*100):0;
+  document.getElementById("totalPnl").innerText=pnl.toFixed(2);
+  document.getElementById("totalTrades").innerText=total;
+  document.getElementById("wins").innerText=wins;
+  document.getElementById("losses").innerText=losses;
+  document.getElementById("winRate").innerText=rate+"%";
+}
+
+function openModal(date){selectedDate=date;selectedResult=null;document.getElementById("modalDate").innerText=date;document.getElementById("modal").classList.add("show");}
+function closeModal(){document.getElementById("modal").classList.remove("show");}
+function saveTrade(){
+  const sym=document.getElementById("inputSymbol").value.trim();
+  const pnl=parseFloat(document.getElementById("inputPnl").value||0);
+  const notes=document.getElementById("inputNotes").value.trim();
+  if(!sym) return alert("Enter symbol");
+  if(!selectedResult) return alert("Select result");
+  trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl,notes,result:selectedResult});
+  localStorage.setItem("journal",JSON.stringify(trades));
+  renderCalendar(); closeModal();
+}
+function toggleDarkMode(){document.body.classList.toggle("dark");}
+document.querySelectorAll("#resultBtns .btn").forEach(btn=>{btn.addEventListener("click",()=>selectedResult=btn.dataset.result);});
+
+function prevMonth(){ currentMonth--; if(currentMonth<0){currentMonth=11;currentYear--;} renderCalendar(); }
+function nextMonth(){ currentMonth++; if(currentMonth>11){currentMonth=0;currentYear++;} renderCalendar(); }
+
+renderWeekdays();renderCalendar();
+</script>
+</body>
+</html>
