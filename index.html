@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Trading Journal</title>
+  <title>Trading Journal Pro</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     /* ---------- Base / Theme ---------- */
@@ -108,10 +108,11 @@
     body.dark .weekly-card.loss { background:#7f1d1d; color:#fecaca; }
     body.dark .weekly-card.neutral { background:#1e3a8a; color:#bfdbfe; }
 
-    /* ---------- Charts ---------- */
-    .charts-grid { display:flex; gap:12px; flex-wrap:wrap; }
-    .chart-card { background:var(--card); padding:12px; border-radius:10px; box-shadow:0 8px 20px rgba(2,6,23,0.06); flex:1 1 320px; }
-    canvas { width:100% !important; height:260px !important; }
+    /* ---------- Charts (2x2) ---------- */
+    .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+    .chart-card { background:var(--card); padding:12px; border-radius:10px; box-shadow:0 8px 20px rgba(2,6,23,0.06); min-height:320px; display:flex; flex-direction:column; }
+    .chart-card h4 { margin:0 0 8px 0; font-size:15px; }
+    canvas { width:100% !important; height:220px !important; flex:1; }
 
     /* ---------- Misc ---------- */
     .muted { color:var(--muted); font-size:13px; }
@@ -128,7 +129,7 @@
     <button class="btn side-btn" onclick="prevMonth()">◀</button>
 
     <div class="title">
-      <h1>Trading Journal</h1>
+      <h1>Trading Journal Pro</h1>
       <div id="monthLabel" class="month muted"></div>
     </div>
 
@@ -249,6 +250,14 @@
         <h4>Results Distribution</h4>
         <canvas id="pieChart"></canvas>
       </div>
+      <div class="chart-card">
+        <h4>Monthly P&L</h4>
+        <canvas id="monthlyPnlChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h4>Win Rate Over Time</h4>
+        <canvas id="winrateChart"></canvas>
+      </div>
     </div>
     <div style="margin-top:12px;" class="muted">Charts update live as you add / edit / delete trades. Journal tab remains default.</div>
   </div>
@@ -276,6 +285,8 @@ let currentWeekRange = { start: null, end: null, summary: "", weekKey: null };
 // Charts instances
 let equityChart = null;
 let pieChart = null;
+let monthlyPnlChart = null;
+let winrateChart = null;
 
 /* ================= Helpers: local date strings ================= */
 function pad(n){ return String(n).padStart(2,"0"); }
@@ -336,10 +347,12 @@ function renderCalendar() {
     const dow = new Date(currentYear, currentMonth, d).getDay();
 
     const weekendClass = (dow === 0 || dow === 6) ? "weekend" : "";
+    // Only show P&L text if there are trades for that day
+    const pnlText = dayTrades.length ? ((pnl > 0 ? "+" : "") + pnl.toFixed(2)) : "";
     cal.innerHTML += `
       <div class="day ${weekendClass}" onclick="${dow === 0 || dow === 6 ? "" : `openModal('${key}')`}">
         <div class="day-number">${d}</div>
-        <div class="pnl ${pnl > 0 ? "positive" : pnl < 0 ? "negative" : ""}">${pnl ? (pnl > 0 ? "+" : "") + pnl.toFixed(2) : ""}</div>
+        <div class="pnl ${pnl > 0 ? "positive" : pnl < 0 ? "negative" : ""}">${pnlText}</div>
         <div class="winrate">${nonBeTrades ? rate + "% WR" : ""}</div>
         <div class="trcount">${dayTrades.length ? dayTrades.length + " trade" + (dayTrades.length>1 ? "s" : "") : ""}</div>
       </div>
@@ -347,8 +360,8 @@ function renderCalendar() {
   }
   renderStats();
   renderWeeklyStats();
-  // update charts live
-  renderCharts();
+  // update charts live (only if charts tab is visible to avoid unnecessary loads)
+  if(document.getElementById("chartsTab").style.display !== "none") renderCharts();
 }
 
 /* ================= Monthly stats ================= */
@@ -541,11 +554,13 @@ function saveWeeklyCapital(){
 /* ================= Favorites ================= */
 function renderFavoritesDropdown(){
   const sel = document.getElementById("symbolSelect");
+  if(!sel) return;
   sel.innerHTML = `<option value="">--Select Symbol--</option>` + favorites.map(f => `<option value="${f}">${f}</option>`).join("");
 }
 
 function renderFavoritesList(){
   const box = document.getElementById("favoritesList");
+  if(!box) return;
   box.innerHTML = "";
   favorites.forEach((f,i) => {
     const div = document.createElement("div");
@@ -696,6 +711,7 @@ function importJSON(input){
 /* ================= Render trade list / summary ================= */
 function renderTradeList(){
   const list = document.getElementById("tradeList");
+  if(!list) return;
   list.innerHTML = "";
   const dayTrades = trades.filter(t => t.date === selectedDate);
   if(dayTrades.length === 0){
@@ -719,6 +735,7 @@ function renderTradeList(){
 
 function renderDailySummary(){
   const summary = document.getElementById("dailySummary");
+  if(!summary) return;
   const dayTrades = trades.filter(t => t.date === selectedDate);
   if(dayTrades.length === 0){ summary.className = "daily-summary neutral"; summary.innerText = "No trades yet."; return; }
   const pnl = dayTrades.reduce((a,t) => a + Number(t.pnl), 0);
@@ -766,10 +783,14 @@ function toggleDarkMode(){
 }
 
 function resetInputs(){
-  document.getElementById("symbolSelect").value = "";
-  document.getElementById("inputSymbol").value = "";
-  document.getElementById("inputPnl").value = "";
-  document.getElementById("inputNotes").value = "";
+  const sel = document.getElementById("symbolSelect");
+  if(sel) sel.value = "";
+  const inSym = document.getElementById("inputSymbol");
+  if(inSym) inSym.value = "";
+  const inPnl = document.getElementById("inputPnl");
+  if(inPnl) inPnl.value = "";
+  const inNotes = document.getElementById("inputNotes");
+  if(inNotes) inNotes.value = "";
   selectedResult = null;
   editingId = null;
   highlightResult();
@@ -794,7 +815,7 @@ function prevMonth(){ currentMonth--; if(currentMonth < 0){ currentMonth = 11; c
 function nextMonth(){ currentMonth++; if(currentMonth > 11){ currentMonth = 0; currentYear++; } renderCalendar(); }
 
 /* ================= Gemini Integration ================= */
-/* Your Gemini API key (you provided previously) */
+/* Your Gemini API key (user-provided) */
 const GEMINI_API_KEY = "AIzaSyAOxXQetv8Dz4wcXBRXrE1JrwEmWnIU3bk";
 
 /* Helper to escape HTML */
@@ -981,7 +1002,7 @@ async function generateGeminiWeeklyReport(weekStart, weekEnd, shortSummary, week
     const resp = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body)
+      body: JSON.stringify(body)
     });
 
     const data = await resp.json();
@@ -1005,15 +1026,19 @@ async function generateGeminiWeeklyReport(weekStart, weekEnd, shortSummary, week
 }
 
 /* ================= Charts rendering ================= */
+/* Helpers for charts */
 function aggregateByDateAllTrades() {
   // produce sorted dates and cumulative pnl
-  const map = {};
   const dates = Array.from(new Set(trades.map(t => t.date))).sort();
+  const labels = [];
+  const values = [];
+  let cum = 0;
   dates.forEach(d => {
-    map[d] = trades.filter(t => t.date <= d).reduce((a,b)=>a+Number(b.pnl),0);
+    const dayTotal = trades.filter(t => t.date === d).reduce((a,b)=>a+Number(b.pnl),0);
+    cum += dayTotal;
+    labels.push(d);
+    values.push(Number(cum.toFixed(2)));
   });
-  const labels = Object.keys(map).sort();
-  const values = labels.map(l => map[l]);
   return { labels, values };
 }
 
@@ -1027,6 +1052,41 @@ function buildResultsDistribution() {
   return counts;
 }
 
+function aggregateMonthlyPnl() {
+  // returns 12 months for current year and aggregated pnl per month
+  const months = Array.from({length:12}, (_,i)=>MONTHS[i]);
+  const values = Array.from({length:12}, ()=>0);
+  trades.forEach(t => {
+    const d = new Date(t.date + "T00:00:00");
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    if(y === currentYear) {
+      values[m] += Number(t.pnl);
+    }
+  });
+  return { labels: months, values };
+}
+
+function winrateOverTime() {
+  // produce cumulative win rate by date: compute rolling winrate on non-BE trades
+  const dates = Array.from(new Set(trades.map(t => t.date))).sort();
+  const labels = [];
+  const values = [];
+  let wins = 0, losses = 0;
+  dates.forEach(d => {
+    const dayTrades = trades.filter(t => t.date === d && t.result !== "be");
+    dayTrades.forEach(t=>{
+      if(t.result === "win") wins++;
+      if(t.result === "loss") losses++;
+    });
+    const total = wins + losses;
+    const rate = total ? Math.round((wins / total)*100) : 0;
+    labels.push(d);
+    values.push(rate);
+  });
+  return { labels, values };
+}
+
 function renderCharts() {
   // load Chart.js if not loaded
   if (typeof Chart === "undefined") {
@@ -1038,52 +1098,122 @@ function renderCharts() {
     return;
   }
 
+  // Equity
   const eq = aggregateByDateAllTrades();
+  // Results distribution
   const res = buildResultsDistribution();
+  // Monthly PnL
+  const monthly = aggregateMonthlyPnl();
+  // Winrate over time
+  const wr = winrateOverTime();
 
   // Equity chart
-  const ctxEq = document.getElementById("equityChart").getContext("2d");
-  if(equityChart) equityChart.destroy();
-  equityChart = new Chart(ctxEq, {
-    type: "line",
-    data: {
-      labels: eq.labels,
-      datasets: [{
-        label: "Cumulative P&L",
-        data: eq.values,
-        fill: false,
-        tension: 0.2,
-        borderWidth: 2,
-        pointRadius: 3
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { display: true },
-        y: { display: true }
+  const eqCanvas = document.getElementById("equityChart");
+  if(eqCanvas && eqCanvas.getContext){
+    const ctxEq = eqCanvas.getContext("2d");
+    if(equityChart) equityChart.destroy();
+    equityChart = new Chart(ctxEq, {
+      type: "line",
+      data: {
+        labels: eq.labels,
+        datasets: [{
+          label: "Cumulative P&L",
+          data: eq.values,
+          fill: true,
+          tension: 0.2,
+          borderWidth: 2,
+          pointRadius: 3,
+          backgroundColor: 'rgba(99,102,241,0.06)',
+          borderColor: 'rgba(99,102,241,0.9)'
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: true },
+          y: { display: true }
+        }
       }
-    }
-  });
+    });
+  }
 
   // Pie chart
-  const ctxPie = document.getElementById("pieChart").getContext("2d");
-  if(pieChart) pieChart.destroy();
-  pieChart = new Chart(ctxPie, {
-    type: "pie",
-    data: {
-      labels: ["Wins","Losses","Break-even"],
-      datasets: [{
-        data: [res.win, res.loss, res.be],
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { position: "bottom" } }
-    }
-  });
+  const pieCanvas = document.getElementById("pieChart");
+  if(pieCanvas && pieCanvas.getContext){
+    const ctxPie = pieCanvas.getContext("2d");
+    if(pieChart) pieChart.destroy();
+    pieChart = new Chart(ctxPie, {
+      type: "pie",
+      data: {
+        labels: ["Wins","Losses","Break-even"],
+        datasets: [{
+          data: [res.win, res.loss, res.be],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: "bottom" } }
+      }
+    });
+  }
+
+  // Monthly PnL bar chart
+  const mCanvas = document.getElementById("monthlyPnlChart");
+  if(mCanvas && mCanvas.getContext){
+    const ctxM = mCanvas.getContext("2d");
+    if(monthlyPnlChart) monthlyPnlChart.destroy();
+    monthlyPnlChart = new Chart(ctxM, {
+      type: "bar",
+      data: {
+        labels: monthly.labels,
+        datasets: [{
+          label: "Monthly P&L",
+          data: monthly.values,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: true },
+          y: { display: true }
+        }
+      }
+    });
+  }
+
+  // Winrate over time line chart
+  const wCanvas = document.getElementById("winrateChart");
+  if(wCanvas && wCanvas.getContext){
+    const ctxW = wCanvas.getContext("2d");
+    if(winrateChart) winrateChart.destroy();
+    winrateChart = new Chart(ctxW, {
+      type: "line",
+      data: {
+        labels: wr.labels,
+        datasets: [{
+          label: "Win Rate (%)",
+          data: wr.values,
+          fill: false,
+          tension: 0.2,
+          borderWidth: 2,
+          pointRadius: 3,
+          borderColor: 'rgba(16,185,129,0.9)'
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: true },
+          y: { display: true, suggestedMin: 0, suggestedMax: 100 }
+        }
+      }
+    });
+  }
 }
 
 /* ================= Init / Event listeners ================= */
@@ -1098,7 +1228,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Enter to save from PnL input
   const pnlEl = document.getElementById("inputPnl");
-  pnlEl.addEventListener("keypress", (e) => {
+  if(pnlEl) pnlEl.addEventListener("keypress", (e) => {
     if(e.key === "Enter"){ e.preventDefault(); saveTrade(); }
   });
 
