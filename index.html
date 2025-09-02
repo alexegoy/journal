@@ -108,11 +108,14 @@
     body.dark .weekly-card.loss { background:#7f1d1d; color:#fecaca; }
     body.dark .weekly-card.neutral { background:#1e3a8a; color:#bfdbfe; }
 
-    /* ---------- Charts (2x2) ---------- */
-    .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
-    .chart-card { background:var(--card); padding:12px; border-radius:10px; box-shadow:0 8px 20px rgba(2,6,23,0.06); min-height:320px; display:flex; flex-direction:column; }
+    /* ---------- Charts (2x2 grid) ---------- */
+    .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; align-items:start; }
+    .chart-card { background:var(--card); padding:12px 14px; border-radius:10px; box-shadow:0 8px 20px rgba(2,6,23,0.06); display:flex; flex-direction:column; align-items:stretch; min-height:320px; }
     .chart-card h4 { margin:0 0 8px 0; font-size:15px; }
-    canvas { width:100% !important; height:220px !important; flex:1; }
+    /* make canvas responsive but constrain width for pie to avoid stretching */
+    .chart-card canvas { width:100% !important; height:260px !important; display:block; margin:0 auto; }
+    /* special constraint for pie to keep it centered and square-like */
+    #pieChart { max-width:320px; max-height:320px; width:100% !important; height:320px !important; }
 
     /* ---------- Misc ---------- */
     .muted { color:var(--muted); font-size:13px; }
@@ -121,6 +124,13 @@
 
     #toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#16a34a; color:white; padding:8px 12px; border-radius:8px; display:none; z-index:1300; }
     .hidden-file { display:none; }
+
+    /* small screens */
+    @media (max-width:900px){
+      .charts-grid { grid-template-columns:1fr; }
+      .chart-card { min-height:280px; }
+      #pieChart { height:260px !important; max-height:260px; }
+    }
   </style>
 </head>
 <body>
@@ -145,18 +155,24 @@
   <!-- Journal tab -->
   <div id="journalTab">
     <!-- Weekday headers -->
-    <div class="calendar-container" id="weekdays"></div>
+    <div class="calendar-container" id="weekdays" aria-hidden="false"></div>
 
     <!-- Calendar grid -->
-    <div class="calendar-container" id="calendar"></div>
+    <div class="calendar-container" id="calendar" aria-hidden="false"></div>
 
     <!-- Stats -->
-    <div class="stats">
+    <div class="stats" role="region" aria-label="Monthly stats">
       <div class="stat"><div class="stat-label">Monthly P&L</div><div id="totalPnl" class="stat-value">0.00</div></div>
       <div class="stat"><div class="stat-label">Trades</div><div id="totalTrades" class="stat-value">0</div></div>
       <div class="stat"><div class="stat-label">Wins</div><div id="wins" class="stat-value">0</div></div>
       <div class="stat"><div class="stat-label">Losses</div><div id="losses" class="stat-value">0</div></div>
       <div class="stat"><div class="stat-label">Win Rate</div><div id="winRate" class="stat-value">0%</div></div>
+
+      <!-- New analytics -->
+      <div class="stat"><div class="stat-label">Max Drawdown</div><div id="maxDrawdown" class="stat-value">0.00</div></div>
+      <div class="stat"><div class="stat-label">Profit Factor</div><div id="profitFactor" class="stat-value">0.00</div></div>
+      <div class="stat"><div class="stat-label">Longest Win Streak</div><div id="winStreak" class="stat-value">0</div></div>
+      <div class="stat"><div class="stat-label">Longest Loss Streak</div><div id="lossStreak" class="stat-value">0</div></div>
 
       <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
         <button class="btn" onclick="toggleDarkMode()">🌙</button>
@@ -235,28 +251,28 @@
       </div>
     </div>
 
-    <div id="toast"></div>
+    <div id="toast" role="status" aria-live="polite" ></div>
   </div>
 
   <!-- Charts tab -->
   <div id="chartsTab" style="display:none">
     <h3>Charts (View only)</h3>
-    <div class="charts-grid">
+    <div class="charts-grid" aria-hidden="false">
       <div class="chart-card">
         <h4>Equity Curve (Cumulative P&L)</h4>
-        <canvas id="equityChart"></canvas>
+        <canvas id="equityChart" aria-label="Equity curve chart"></canvas>
       </div>
-      <div class="chart-card">
+      <div class="chart-card" style="align-items:center;">
         <h4>Results Distribution</h4>
-        <canvas id="pieChart"></canvas>
+        <canvas id="pieChart" aria-label="Results distribution pie chart"></canvas>
       </div>
       <div class="chart-card">
-        <h4>Monthly P&L</h4>
-        <canvas id="monthlyPnlChart"></canvas>
+        <h4>PnL Histogram</h4>
+        <canvas id="histChart" aria-label="PnL histogram chart"></canvas>
       </div>
       <div class="chart-card">
-        <h4>Win Rate Over Time</h4>
-        <canvas id="winrateChart"></canvas>
+        <h4>Trades by Symbol</h4>
+        <canvas id="symbolChart" aria-label="Trades by symbol chart"></canvas>
       </div>
     </div>
     <div style="margin-top:12px;" class="muted">Charts update live as you add / edit / delete trades. Journal tab remains default.</div>
@@ -285,8 +301,8 @@ let currentWeekRange = { start: null, end: null, summary: "", weekKey: null };
 // Charts instances
 let equityChart = null;
 let pieChart = null;
-let monthlyPnlChart = null;
-let winrateChart = null;
+let histChart = null;
+let symbolChart = null;
 
 /* ================= Helpers: local date strings ================= */
 function pad(n){ return String(n).padStart(2,"0"); }
@@ -347,24 +363,32 @@ function renderCalendar() {
     const dow = new Date(currentYear, currentMonth, d).getDay();
 
     const weekendClass = (dow === 0 || dow === 6) ? "weekend" : "";
-    // Only show P&L text if there are trades for that day
-    const pnlText = dayTrades.length ? ((pnl > 0 ? "+" : "") + pnl.toFixed(2)) : "";
+
+    // show PnL only if there are trades that day (prevents 0.00 on empty days)
+    const pnlText = dayTrades.length ? ((pnl>0?"+":"") + pnl.toFixed(2)) : "";
+
+    const winrateText = nonBeTrades ? rate + "% WR" : "";
+    const trcountText = dayTrades.length ? dayTrades.length + " trade" + (dayTrades.length>1 ? "s" : "") : "";
+
+    // Only attach onclick if not weekend
+    const click = (dow === 0 || dow === 6) ? "" : `onclick="openModal('${key}')"`;
+
     cal.innerHTML += `
-      <div class="day ${weekendClass}" onclick="${dow === 0 || dow === 6 ? "" : `openModal('${key}')`}">
+      <div class="day ${weekendClass}" ${click}>
         <div class="day-number">${d}</div>
         <div class="pnl ${pnl > 0 ? "positive" : pnl < 0 ? "negative" : ""}">${pnlText}</div>
-        <div class="winrate">${nonBeTrades ? rate + "% WR" : ""}</div>
-        <div class="trcount">${dayTrades.length ? dayTrades.length + " trade" + (dayTrades.length>1 ? "s" : "") : ""}</div>
+        <div class="winrate">${winrateText}</div>
+        <div class="trcount">${trcountText}</div>
       </div>
     `;
   }
   renderStats();
   renderWeeklyStats();
-  // update charts live (only if charts tab is visible to avoid unnecessary loads)
-  if(document.getElementById("chartsTab").style.display !== "none") renderCharts();
+  // update charts live
+  renderCharts();
 }
 
-/* ================= Monthly stats ================= */
+/* ================= Monthly stats (extended) ================= */
 function renderStats(){
   const monthTrades = trades.filter(t => {
     const d = new Date(t.date + "T00:00:00");
@@ -381,6 +405,13 @@ function renderStats(){
   document.getElementById("wins").innerText = wins;
   document.getElementById("losses").innerText = losses;
   document.getElementById("winRate").innerText = rate + "%";
+
+  // Additional analytics for the entire dataset (not only month)
+  const overall = computeAnalytics(trades);
+  document.getElementById("maxDrawdown").innerText = overall.maxDrawdown.toFixed(2);
+  document.getElementById("profitFactor").innerText = overall.profitFactor === Infinity ? "∞" : overall.profitFactor.toFixed(2);
+  document.getElementById("winStreak").innerText = overall.longestWinStreak;
+  document.getElementById("lossStreak").innerText = overall.longestLossStreak;
 }
 
 /* ================= Weekly aggregation & cards ================= */
@@ -504,38 +535,46 @@ function openWeeklyModal(weekKey, weekStartStr, weekEndStr, shortEsc){
 
   // Prefill capital input for this week
   const cap = Number(weeklyCapital[weekKey] || 0);
-  document.getElementById("weeklyCapitalInput").value = cap ? String(cap) : "";
+  const weeklyCapitalInput = document.getElementById("weeklyCapitalInput");
+  if(weeklyCapitalInput) weeklyCapitalInput.value = cap ? String(cap) : "";
 
   // ROI if capital provided
   const roi = cap > 0 ? (pnl / cap) * 100 : null;
   const roiBadge = roi !== null ? ` • ROI: <b>${roi.toFixed(1)}%</b>` : "";
 
   const summaryEl = document.getElementById("weeklySummary");
-  summaryEl.className = "daily-summary " + pnlClass;
-  summaryEl.innerHTML = `<b>${weeklyTrades.length} trade(s)</b> • Total P&L: <b>${pnl>=0?"+":""}${pnl.toFixed(2)}</b> • Win Rate: <b>${rate}%</b>${roiBadge}`;
-
-  const list = document.getElementById("weeklyTradeList");
-  list.innerHTML = "";
-  if(weeklyTrades.length === 0){
-    list.innerHTML = `<p class="muted">No trades this week.</p>`;
-  } else {
-    weeklyTrades.sort((a, b) => a.date.localeCompare(b.date));
-    weeklyTrades.forEach(t => {
-      list.innerHTML += `<div class="trade-row"><div class="trade-info">${t.date} • ${t.symbol} • ${t.result.toUpperCase()} • ${t.pnl>=0?"+":""}${Number(t.pnl).toFixed(2)}</div><div class="muted" style="margin-top:6px">${t.notes||""}</div></div>`;
-    });
+  if(summaryEl){
+    summaryEl.className = "daily-summary " + pnlClass;
+    summaryEl.innerHTML = `<b>${weeklyTrades.length} trade(s)</b> • Total P&L: <b>${pnl>=0?"+":""}${pnl.toFixed(2)}</b> • Win Rate: <b>${rate}%</b>${roiBadge}`;
   }
 
-  document.getElementById("weeklyModalTitle").innerText = `${weekKey}  (${startStr} → ${endStr})`;
-  document.getElementById("weeklyModal").classList.add("show");
+  const list = document.getElementById("weeklyTradeList");
+  if(list){
+    list.innerHTML = "";
+    if(weeklyTrades.length === 0){
+      list.innerHTML = `<p class="muted">No trades this week.</p>`;
+    } else {
+      weeklyTrades.sort((a, b) => a.date.localeCompare(b.date));
+      weeklyTrades.forEach(t => {
+        list.innerHTML += `<div class="trade-row"><div class="trade-info">${t.date} • ${t.symbol} • ${t.result.toUpperCase()} • ${t.pnl>=0?"+":""}${Number(t.pnl).toFixed(2)}</div><div class="muted" style="margin-top:6px">${t.notes||""}</div></div>`;
+      });
+    }
+  }
+
+  const weeklyTitle = document.getElementById("weeklyModalTitle");
+  if(weeklyTitle) weeklyTitle.innerText = `${weekKey}  (${startStr} → ${endStr})`;
+  const weeklyModal = document.getElementById("weeklyModal");
+  if(weeklyModal) weeklyModal.classList.add("show");
 
   currentWeekRange.start = startStr;
   currentWeekRange.end = endStr;
   currentWeekRange.summary = shortSummary;
   currentWeekRange.weekKey = weekKey;
 
-  document.getElementById("aiWeeklyReport").innerHTML = "";
+  const aiEl = document.getElementById("aiWeeklyReport");
+  if(aiEl) aiEl.innerHTML = "";
 }
-function closeWeeklyModal(){ document.getElementById("weeklyModal").classList.remove("show"); }
+function closeWeeklyModal(){ const el = document.getElementById("weeklyModal"); if(el) el.classList.remove("show"); }
 
 /* ================= Save weekly capital ================= */
 function saveWeeklyCapital(){
@@ -576,12 +615,15 @@ function renderFavoritesList(){
 
 function toggleFavoritesManager(){
   const fb = document.getElementById("favoritesBox");
+  if(!fb) return;
   fb.style.display = (fb.style.display === "block") ? "none" : "block";
   renderFavoritesList();
 }
 
 function addFavorite(){
-  const v = (document.getElementById("newFavorite").value || "").trim().toUpperCase();
+  const el = document.getElementById("newFavorite");
+  if(!el) return;
+  const v = (el.value || "").trim().toUpperCase();
   if(!v) return;
   if(!favorites.includes(v)){
     favorites.push(v);
@@ -592,7 +634,7 @@ function addFavorite(){
   } else {
     showToast("Already in favorites");
   }
-  document.getElementById("newFavorite").value = "";
+  el.value = "";
 }
 
 function removeFavorite(i){
@@ -609,8 +651,10 @@ function openModal(date){
   selectedDate = date;
   selectedResult = null;
   editingId = null;
-  document.getElementById("modalDate").innerText = date;
-  document.getElementById("modal").classList.add("show");
+  const md = document.getElementById("modalDate");
+  if(md) md.innerText = date;
+  const modal = document.getElementById("modal");
+  if(modal) modal.classList.add("show");
   resetInputs();
   renderTradeList();
   renderDailySummary();
@@ -618,7 +662,8 @@ function openModal(date){
 }
 
 function closeModal(){
-  document.getElementById("modal").classList.remove("show");
+  const modal = document.getElementById("modal");
+  if(modal) modal.classList.remove("show");
 }
 
 function saveTrade(){
@@ -754,15 +799,21 @@ function editTrade(id){
   const t = trades.find(x => x.id === id);
   if(!t) return;
   editingId = id;
-  document.getElementById("inputSymbol").value = t.symbol;
-  document.getElementById("symbolSelect").value = "";
-  document.getElementById("inputPnl").value = t.pnl;
-  document.getElementById("inputNotes").value = t.notes;
+  const inputSymbol = document.getElementById("inputSymbol");
+  const symbolSelect = document.getElementById("symbolSelect");
+  const inputPnl = document.getElementById("inputPnl");
+  const inputNotes = document.getElementById("inputNotes");
+  if(inputSymbol) inputSymbol.value = t.symbol;
+  if(symbolSelect) symbolSelect.value = "";
+  if(inputPnl) inputPnl.value = t.pnl;
+  if(inputNotes) inputNotes.value = t.notes;
   selectedResult = t.result;
   highlightResult();
   selectedDate = t.date;
-  document.getElementById("modalDate").innerText = t.date;
-  document.getElementById("modal").classList.add("show");
+  const md = document.getElementById("modalDate");
+  if(md) md.innerText = t.date;
+  const modal = document.getElementById("modal");
+  if(modal) modal.classList.add("show");
   renderTradeList();
   renderDailySummary();
 }
@@ -783,14 +834,14 @@ function toggleDarkMode(){
 }
 
 function resetInputs(){
-  const sel = document.getElementById("symbolSelect");
-  if(sel) sel.value = "";
-  const inSym = document.getElementById("inputSymbol");
-  if(inSym) inSym.value = "";
-  const inPnl = document.getElementById("inputPnl");
-  if(inPnl) inPnl.value = "";
-  const inNotes = document.getElementById("inputNotes");
-  if(inNotes) inNotes.value = "";
+  const symbolSelect = document.getElementById("symbolSelect");
+  const inputSymbol = document.getElementById("inputSymbol");
+  const inputPnl = document.getElementById("inputPnl");
+  const inputNotes = document.getElementById("inputNotes");
+  if(symbolSelect) symbolSelect.value = "";
+  if(inputSymbol) inputSymbol.value = "";
+  if(inputPnl) inputPnl.value = "";
+  if(inputNotes) inputNotes.value = "";
   selectedResult = null;
   editingId = null;
   highlightResult();
@@ -805,6 +856,7 @@ function highlightResult(){
 
 function showToast(msg){
   const t = document.getElementById("toast");
+  if(!t) return;
   t.innerText = msg;
   t.style.display = "block";
   setTimeout(()=> t.style.display = "none", 1600);
@@ -815,7 +867,7 @@ function prevMonth(){ currentMonth--; if(currentMonth < 0){ currentMonth = 11; c
 function nextMonth(){ currentMonth++; if(currentMonth > 11){ currentMonth = 0; currentYear++; } renderCalendar(); }
 
 /* ================= Gemini Integration ================= */
-/* Your Gemini API key (user-provided) */
+/* Your Gemini API key (you provided previously) */
 const GEMINI_API_KEY = "AIzaSyAOxXQetv8Dz4wcXBRXrE1JrwEmWnIU3bk";
 
 /* Helper to escape HTML */
@@ -1014,30 +1066,87 @@ async function generateGeminiWeeklyReport(weekStart, weekEnd, shortSummary, week
       textOutput = local.html.replace(/<br>/g,"\n");
     }
 
-    document.getElementById("aiWeeklyReport").innerHTML = escapeHtml(textOutput).replace(/\n/g,"<br>");
+    const aiEl = document.getElementById("aiWeeklyReport");
+    if(aiEl) aiEl.innerHTML = escapeHtml(textOutput).replace(/\n/g,"<br>");
     alert("📊 Gemini Weekly Report:\n\n" + textOutput);
 
   } catch (err) {
     console.error("Gemini API error:", err);
     const local = localWeeklyReport(weeklyTrades, weekKey);
-    document.getElementById("aiWeeklyReport").innerHTML = local.html;
+    const aiEl = document.getElementById("aiWeeklyReport");
+    if(aiEl) aiEl.innerHTML = local.html;
     alert("⚠️ Gemini API error: " + (err.message || String(err)) + "\n\nShowing local summary instead.");
   }
 }
 
+/* ================= Analytics utilities ================= */
+function computeAnalytics(allTrades) {
+  // Sort by date then by id (stable)
+  const sorted = [...allTrades].sort((a,b) => {
+    if(a.date === b.date) return (a.id||"").localeCompare(b.id||"");
+    return a.date.localeCompare(b.date);
+  });
+
+  // Cumulative equity by trade
+  let cum = 0;
+  let peak = -Infinity;
+  let maxDD = 0;
+  const equity = [];
+  for(const t of sorted){
+    cum += Number(t.pnl);
+    equity.push(cum);
+    if(cum > peak) peak = cum;
+    const dd = peak - cum;
+    if(dd > maxDD) maxDD = dd;
+  }
+
+  // Profit factor: sum(win pnl) / abs(sum(loss pnl))
+  let winsSum = 0, lossSum = 0;
+  for(const t of allTrades){
+    const v = Number(t.pnl);
+    if(t.result === "win") winsSum += v;
+    else if(t.result === "loss") lossSum += v;
+  }
+  const profitFactor = lossSum === 0 ? (winsSum > 0 ? Infinity : 0) : (winsSum / Math.abs(lossSum));
+
+  // Longest streaks (by sequence of trades, not grouped by day)
+  let longestWin = 0, longestLoss = 0;
+  let curWin = 0, curLoss = 0;
+  for(const t of sorted){
+    if(t.result === "win"){
+      curWin++; longestWin = Math.max(longestWin, curWin);
+      curLoss = 0;
+    } else if(t.result === "loss"){
+      curLoss++; longestLoss = Math.max(longestLoss, curLoss);
+      curWin = 0;
+    } else {
+      // break-even resets both streaks
+      curWin = 0; curLoss = 0;
+    }
+  }
+
+  return {
+    maxDrawdown: maxDD || 0,
+    profitFactor: profitFactor,
+    longestWinStreak: longestWin,
+    longestLossStreak: longestLoss,
+    equitySeries: equity
+  };
+}
+
 /* ================= Charts rendering ================= */
-/* Helpers for charts */
 function aggregateByDateAllTrades() {
-  // produce sorted dates and cumulative pnl
+  // produce sorted dates and cumulative pnl by date
   const dates = Array.from(new Set(trades.map(t => t.date))).sort();
   const labels = [];
   const values = [];
   let cum = 0;
   dates.forEach(d => {
-    const dayTotal = trades.filter(t => t.date === d).reduce((a,b)=>a+Number(b.pnl),0);
-    cum += dayTotal;
+    const todays = trades.filter(t => t.date === d);
+    const sumToday = todays.reduce((a,b)=>a+Number(b.pnl),0);
+    cum += sumToday;
     labels.push(d);
-    values.push(Number(cum.toFixed(2)));
+    values.push(cum);
   });
   return { labels, values };
 }
@@ -1052,39 +1161,32 @@ function buildResultsDistribution() {
   return counts;
 }
 
-function aggregateMonthlyPnl() {
-  // returns 12 months for current year and aggregated pnl per month
-  const months = Array.from({length:12}, (_,i)=>MONTHS[i]);
-  const values = Array.from({length:12}, ()=>0);
-  trades.forEach(t => {
-    const d = new Date(t.date + "T00:00:00");
-    const y = d.getFullYear();
-    const m = d.getMonth();
-    if(y === currentYear) {
-      values[m] += Number(t.pnl);
-    }
+function buildHistogramData(bins = 12) {
+  const pnls = trades.map(t => Number(t.pnl)).sort((a,b)=>a-b);
+  if(pnls.length === 0) return { labels: [], data: [] };
+  const min = pnls[0], max = pnls[pnls.length-1];
+  const range = max - min || 1;
+  const binSize = range / bins;
+  const counts = new Array(bins).fill(0);
+  pnls.forEach(v => {
+    const idx = Math.min(bins-1, Math.floor((v - min) / binSize));
+    counts[idx]++; 
   });
-  return { labels: months, values };
+  const labels = counts.map((_,i) => {
+    const a = (min + binSize*i);
+    const b = (min + binSize*(i+1));
+    return `${a.toFixed(2)} → ${b.toFixed(2)}`;
+  });
+  return { labels, data: counts };
 }
 
-function winrateOverTime() {
-  // produce cumulative win rate by date: compute rolling winrate on non-BE trades
-  const dates = Array.from(new Set(trades.map(t => t.date))).sort();
-  const labels = [];
-  const values = [];
-  let wins = 0, losses = 0;
-  dates.forEach(d => {
-    const dayTrades = trades.filter(t => t.date === d && t.result !== "be");
-    dayTrades.forEach(t=>{
-      if(t.result === "win") wins++;
-      if(t.result === "loss") losses++;
-    });
-    const total = wins + losses;
-    const rate = total ? Math.round((wins / total)*100) : 0;
-    labels.push(d);
-    values.push(rate);
-  });
-  return { labels, values };
+function buildSymbolCounts(limit = 8) {
+  const map = {};
+  trades.forEach(t => { map[t.symbol] = (map[t.symbol] || 0) + 1; });
+  const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  const labels = entries.slice(0,limit).map(e=>e[0]);
+  const data = entries.slice(0,limit).map(e=>e[1]);
+  return { labels, data };
 }
 
 function renderCharts() {
@@ -1100,17 +1202,14 @@ function renderCharts() {
 
   // Equity
   const eq = aggregateByDateAllTrades();
-  // Results distribution
   const res = buildResultsDistribution();
-  // Monthly PnL
-  const monthly = aggregateMonthlyPnl();
-  // Winrate over time
-  const wr = winrateOverTime();
+  const hist = buildHistogramData(12);
+  const sym = buildSymbolCounts(12);
 
   // Equity chart
-  const eqCanvas = document.getElementById("equityChart");
-  if(eqCanvas && eqCanvas.getContext){
-    const ctxEq = eqCanvas.getContext("2d");
+  const eqEl = document.getElementById("equityChart");
+  if(eqEl){
+    const ctxEq = eqEl.getContext("2d");
     if(equityChart) equityChart.destroy();
     equityChart = new Chart(ctxEq, {
       type: "line",
@@ -1119,16 +1218,16 @@ function renderCharts() {
         datasets: [{
           label: "Cumulative P&L",
           data: eq.values,
-          fill: true,
+          fill: false,
           tension: 0.2,
           borderWidth: 2,
-          pointRadius: 3,
-          backgroundColor: 'rgba(99,102,241,0.06)',
-          borderColor: 'rgba(99,102,241,0.9)'
+          pointRadius: 3
         }]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2.2,
         plugins: { legend: { display: false } },
         scales: {
           x: { display: true },
@@ -1139,9 +1238,9 @@ function renderCharts() {
   }
 
   // Pie chart
-  const pieCanvas = document.getElementById("pieChart");
-  if(pieCanvas && pieCanvas.getContext){
-    const ctxPie = pieCanvas.getContext("2d");
+  const pieEl = document.getElementById("pieChart");
+  if(pieEl){
+    const ctxPie = pieEl.getContext("2d");
     if(pieChart) pieChart.destroy();
     pieChart = new Chart(ctxPie, {
       type: "pie",
@@ -1154,62 +1253,64 @@ function renderCharts() {
       },
       options: {
         responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1, // keep pie square-ish to avoid stretching
         plugins: { legend: { position: "bottom" } }
       }
     });
   }
 
-  // Monthly PnL bar chart
-  const mCanvas = document.getElementById("monthlyPnlChart");
-  if(mCanvas && mCanvas.getContext){
-    const ctxM = mCanvas.getContext("2d");
-    if(monthlyPnlChart) monthlyPnlChart.destroy();
-    monthlyPnlChart = new Chart(ctxM, {
+  // Histogram chart
+  const histEl = document.getElementById("histChart");
+  if(histEl){
+    const ctxHist = histEl.getContext("2d");
+    if(histChart) histChart.destroy();
+    histChart = new Chart(ctxHist, {
       type: "bar",
       data: {
-        labels: monthly.labels,
+        labels: hist.labels,
         datasets: [{
-          label: "Monthly P&L",
-          data: monthly.values,
+          label: "Count",
+          data: hist.data,
           borderWidth: 1
         }]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2.2,
         plugins: { legend: { display: false } },
         scales: {
-          x: { display: true },
+          x: { display: true, ticks: { maxRotation: 30, minRotation: 30 } },
           y: { display: true }
         }
       }
     });
   }
 
-  // Winrate over time line chart
-  const wCanvas = document.getElementById("winrateChart");
-  if(wCanvas && wCanvas.getContext){
-    const ctxW = wCanvas.getContext("2d");
-    if(winrateChart) winrateChart.destroy();
-    winrateChart = new Chart(ctxW, {
-      type: "line",
+  // Trades by symbol
+  const symEl = document.getElementById("symbolChart");
+  if(symEl){
+    const ctxSym = symEl.getContext("2d");
+    if(symbolChart) symbolChart.destroy();
+    symbolChart = new Chart(ctxSym, {
+      type: "bar",
       data: {
-        labels: wr.labels,
+        labels: sym.labels,
         datasets: [{
-          label: "Win Rate (%)",
-          data: wr.values,
-          fill: false,
-          tension: 0.2,
-          borderWidth: 2,
-          pointRadius: 3,
-          borderColor: 'rgba(16,185,129,0.9)'
+          label: "Trades",
+          data: sym.data,
+          borderWidth: 1
         }]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 2.2,
         plugins: { legend: { display: false } },
         scales: {
           x: { display: true },
-          y: { display: true, suggestedMin: 0, suggestedMax: 100 }
+          y: { display: true }
         }
       }
     });
@@ -1228,9 +1329,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Enter to save from PnL input
   const pnlEl = document.getElementById("inputPnl");
-  if(pnlEl) pnlEl.addEventListener("keypress", (e) => {
-    if(e.key === "Enter"){ e.preventDefault(); saveTrade(); }
-  });
+  if(pnlEl){
+    pnlEl.addEventListener("keypress", (e) => {
+      if(e.key === "Enter"){ e.preventDefault(); saveTrade(); }
+    });
+  }
 
   // initial renders
   renderFavoritesDropdown();
