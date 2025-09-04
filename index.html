@@ -7,9 +7,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     /* ---------- Base / Theme ---------- */
-    :root { --bg:#f8fafc; --card:#fff; --muted:#64748b; --text:#0f172a; }
+    :root { --bg:#f8fafc; --card:#fff; --muted:#64748b; --text:#0f172a; --accent:#3b82f6; }
     body { font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; margin:0; padding:14px; background:var(--bg); color:var(--text); transition:background .2s,color .2s;}
-    body.dark { --bg:#0f172a; --card:#0f172a; --muted:#cbd5e1; --text:#f1f5f9; }
+    body.dark { --bg:#0f172a; --card:#0f172a; --muted:#cbd5e1; --text:#f1f5f9; --accent:#60a5fa; }
 
     /* ---------- Topbar (centered month label) ---------- */
     .topbar { display:flex; align-items:center; justify-content:space-between; position:relative; margin-bottom:12px; }
@@ -57,7 +57,7 @@
 
     /* ---------- Stats ---------- */
     .stats { margin-top:12px; display:flex; gap:12px; flex-wrap:wrap; background:var(--card); padding:10px; border-radius:12px; align-items:center; }
-    .stat { min-width:100px; }
+    .stat { min-width:120px; }
     .stat-label { font-size:12px; color:var(--muted); }
     .stat-value { font-weight:700; font-size:14px; }
 
@@ -108,14 +108,16 @@
     body.dark .weekly-card.loss { background:#7f1d1d; color:#fecaca; }
     body.dark .weekly-card.neutral { background:#1e3a8a; color:#bfdbfe; }
 
+    /* progress bar */
+    .progress-outer { background: rgba(0,0,0,0.06); border-radius:8px; height:12px; width:100%; overflow:hidden; margin-top:8px; }
+    .progress-inner { height:100%; border-radius:8px; transition:width .3s ease; }
+
     /* ---------- Charts (2x2 grid) ---------- */
-    .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; align-items:start; }
-    .chart-card { background:var(--card); padding:12px 14px; border-radius:10px; box-shadow:0 8px 20px rgba(2,6,23,0.06); display:flex; flex-direction:column; align-items:stretch; min-height:320px; }
-    .chart-card h4 { margin:0 0 8px 0; font-size:15px; }
-    /* make canvas responsive but constrain width for pie to avoid stretching */
-    .chart-card canvas { width:100% !important; height:260px !important; display:block; margin:0 auto; }
-    /* special constraint for pie to keep it centered and square-like */
-    #pieChart { max-width:320px; max-height:320px; width:100% !important; height:320px !important; }
+    .charts-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+    .chart-card { background:var(--card); padding:12px; border-radius:10px; box-shadow:0 8px 20px rgba(2,6,23,0.06); display:flex; flex-direction:column; }
+    /* fix aspect ratio consistency */
+    .chart-card .canvas-wrap { flex:1; display:flex; align-items:center; justify-content:center; }
+    canvas { width:100% !important; height:220px !important; max-height:260px; }
 
     /* ---------- Misc ---------- */
     .muted { color:var(--muted); font-size:13px; }
@@ -124,13 +126,8 @@
 
     #toast { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#16a34a; color:white; padding:8px 12px; border-radius:8px; display:none; z-index:1300; }
     .hidden-file { display:none; }
-
-    /* small screens */
-    @media (max-width:900px){
-      .charts-grid { grid-template-columns:1fr; }
-      .chart-card { min-height:280px; }
-      #pieChart { height:260px !important; max-height:260px; }
-    }
+    .small-muted { font-size:12px; color:var(--muted); }
+    .center-row { display:flex; align-items:center; justify-content:center; gap:8px; }
   </style>
 </head>
 <body>
@@ -155,13 +152,13 @@
   <!-- Journal tab -->
   <div id="journalTab">
     <!-- Weekday headers -->
-    <div class="calendar-container" id="weekdays" aria-hidden="false"></div>
+    <div class="calendar-container" id="weekdays"></div>
 
     <!-- Calendar grid -->
-    <div class="calendar-container" id="calendar" aria-hidden="false"></div>
+    <div class="calendar-container" id="calendar"></div>
 
     <!-- Stats -->
-    <div class="stats" role="region" aria-label="Monthly stats">
+    <div class="stats">
       <div class="stat"><div class="stat-label">Monthly P&L</div><div id="totalPnl" class="stat-value">0.00</div></div>
       <div class="stat"><div class="stat-label">Trades</div><div id="totalTrades" class="stat-value">0</div></div>
       <div class="stat"><div class="stat-label">Wins</div><div id="wins" class="stat-value">0</div></div>
@@ -196,6 +193,22 @@
         <input id="inputSymbol" placeholder="Or type custom symbol (e.g. XAUUSD)" autocomplete="off" />
 
         <input id="inputPnl" type="number" placeholder="P&L" step="0.01" />
+
+        <!-- Source selection -->
+        <div style="max-width:420px;margin:6px auto;display:flex;gap:8px;align-items:center;">
+          <select id="inputSourceType" onchange="onSourceTypeChange()" style="flex:1;">
+            <option value="Self">Self</option>
+            <option value="Signal">Signal</option>
+          </select>
+          <select id="inputSourceProvider" style="flex:2; display:none;">
+            <option value="">--Select Signal Provider--</option>
+            <option>School of Trades (Boss Eddy)</option>
+            <option>RevoGold (Ray)</option>
+            <option>CallistoFX (Nick)</option>
+            <option>TheForexSupport (Casper)</option>
+            <option>TradingCartel (Cartel)</option>
+          </select>
+        </div>
 
         <div id="resultBtns">
           <button class="btn result" data-result="win">Win</button>
@@ -236,43 +249,59 @@
       <div class="sheet" role="dialog" aria-modal="true">
         <h3 id="weeklyModalTitle">Weekly Trades</h3>
         <div id="weeklySummary" class="daily-summary neutral"></div>
+
+        <!-- Goal + Starting capital in modal (editable per-week) -->
+        <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;max-width:420px;margin:8px auto;">
+          <div style="flex:1">
+            <div class="stat-label">Weekly Goal (amount)</div>
+            <input id="weeklyGoalInput" placeholder="e.g. 500" type="number" step="0.01" />
+          </div>
+          <div style="flex:1">
+            <div class="stat-label">Starting Capital</div>
+            <input id="weeklyCapitalInput" type="number" placeholder="e.g. 10000" step="0.01" />
+          </div>
+        </div>
+        <div style="max-width:420px;margin:6px auto;display:flex;gap:8px;">
+          <button class="btn" onclick="saveWeeklyGoal()">Save Goal</button>
+          <button class="btn" onclick="saveWeeklyCapital()">Save Capital</button>
+        </div>
+
         <hr />
         <div id="weeklyTradeList"></div>
 
-        <!-- Capital input -->
-        <div style="margin-top:12px;">
-          <label for="weeklyCapitalInput" class="stat-label">Starting Capital</label>
-          <input id="weeklyCapitalInput" type="number" placeholder="e.g. 10000" step="0.01" onblur="saveWeeklyCapital()" />
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn" style="flex:1" onclick="generateGeminiWeeklyReport()">🤖 Gemini: Weekly Report</button>
+          <button class="btn" style="flex:1" onclick="generateGeminiGoalAnalysis()">🤖 Gemini: Goal Analysis</button>
         </div>
 
-        <button class="btn" style="margin-top:12px;width:100%" onclick="closeWeeklyModal()">✖ Close</button>
-        <button class="btn" style="margin-top:8px;width:100%" onclick="generateGeminiWeeklyReport()">🤖 Generate Gemini AI Report</button>
         <div id="aiWeeklyReport" style="margin-top:12px; font-size:14px; line-height:1.5;"></div>
+
+        <button class="btn" style="margin-top:12px;width:100%" onclick="closeWeeklyModal()">✖ Close</button>
       </div>
     </div>
 
-    <div id="toast" role="status" aria-live="polite" ></div>
+    <div id="toast"></div>
   </div>
 
   <!-- Charts tab -->
   <div id="chartsTab" style="display:none">
     <h3>Charts (View only)</h3>
-    <div class="charts-grid" aria-hidden="false">
+    <div class="charts-grid">
       <div class="chart-card">
         <h4>Equity Curve (Cumulative P&L)</h4>
-        <canvas id="equityChart" aria-label="Equity curve chart"></canvas>
+        <div class="canvas-wrap"><canvas id="equityChart"></canvas></div>
       </div>
-      <div class="chart-card" style="align-items:center;">
+      <div class="chart-card">
         <h4>Results Distribution</h4>
-        <canvas id="pieChart" aria-label="Results distribution pie chart"></canvas>
+        <div class="canvas-wrap"><canvas id="pieChart"></canvas></div>
       </div>
       <div class="chart-card">
         <h4>PnL Histogram</h4>
-        <canvas id="histChart" aria-label="PnL histogram chart"></canvas>
+        <div class="canvas-wrap"><canvas id="histChart"></canvas></div>
       </div>
       <div class="chart-card">
-        <h4>Trades by Symbol</h4>
-        <canvas id="symbolChart" aria-label="Trades by symbol chart"></canvas>
+        <h4>Source Distribution</h4>
+        <div class="canvas-wrap"><canvas id="sourceChart"></canvas></div>
       </div>
     </div>
     <div style="margin-top:12px;" class="muted">Charts update live as you add / edit / delete trades. Journal tab remains default.</div>
@@ -285,7 +314,8 @@ const WEEKDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 let trades = JSON.parse(localStorage.getItem("journal") || "[]");
 let favorites = JSON.parse(localStorage.getItem("favorites") || '["BTCUSDT","ETHUSDT","EURUSD","XAUUSD","GBPJPY"]');
-let weeklyCapital = JSON.parse(localStorage.getItem("weeklyCapital") || "{}"); // per-week starting capital
+let weeklyCapital = JSON.parse(localStorage.getItem("weeklyCapital") || "{}"); // per-week starting capital (by weekKey)
+let weeklyGoals = JSON.parse(localStorage.getItem("weeklyGoals") || "{}"); // per-week goal amount (by weekKey)
 
 let today = new Date();
 let currentMonth = today.getMonth();
@@ -302,7 +332,7 @@ let currentWeekRange = { start: null, end: null, summary: "", weekKey: null };
 let equityChart = null;
 let pieChart = null;
 let histChart = null;
-let symbolChart = null;
+let sourceChart = null;
 
 /* ================= Helpers: local date strings ================= */
 function pad(n){ return String(n).padStart(2,"0"); }
@@ -472,6 +502,29 @@ function renderWeeklyStats(){
     const roi = cap > 0 ? (w.pnl / cap) * 100 : null;
     const roiText = roi !== null ? ` • ROI ${roi.toFixed(1)}%` : "";
 
+    // Goal & progress (per-week goal saved in weeklyGoals)
+    const goal = Number(weeklyGoals[k] || 0);
+    let pct = 0;
+    if(goal > 0){
+      // percent of goal achieved (clamped to 100)
+      pct = Math.min(100, Math.round((w.pnl / goal) * 100));
+      if(pct < 0) pct = 0;
+    } else {
+      // if no goal set, show amount-style behavior: 100 if positive
+      pct = w.pnl > 0 ? 100 : 0;
+    }
+
+    // progress color logic:
+    // - red if pnl < 0
+    // - blue if pnl > 0 and < goal
+    // - green if pnl >= goal
+    let progressColor = "#d1d5db"; // neutral gray
+    if(w.pnl < 0) progressColor = "#ef4444"; // red
+    else if(goal > 0 && w.pnl >= goal) progressColor = "#16a34a"; // green
+    else if(w.pnl > 0) progressColor = "#3b82f6"; // blue
+
+    const capText = cap ? ` • Start: ${cap.toFixed(2)}` : "";
+
     box.innerHTML += `
       <div class="weekly-card ${cls}" onclick="openWeeklyModal('${k}','${start}','${end}','${encodeURIComponent(`Weekly P&L: ${pnlText} | WinRate: ${rate}%`)}')">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -481,7 +534,13 @@ function renderWeeklyStats(){
           </div>
           <div style="text-align:right">
             <div style="font-weight:700">${pnlText}</div>
-            <div class="muted" style="margin-top:6px">${w.trades} trades • ${w.wins} wins • ${w.losses} losses • ${w.breakeven} BE • ${rate}% WR${roiText}</div>
+            <div class="muted" style="margin-top:6px">${w.trades} trades • ${w.wins} wins • ${w.losses} losses • ${w.breakeven} BE • ${rate}% WR${roiText}${capText}</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="small-muted">Progress to weekly goal (${goal || "N/A"}): ${pct}%</div>
+          <div class="progress-outer">
+            <div class="progress-inner" style="width:${pct}%; background:${progressColor};"></div>
           </div>
         </div>
       </div>
@@ -533,10 +592,14 @@ function openWeeklyModal(weekKey, weekStartStr, weekEndStr, shortEsc){
   const rate = nonBeTrades ? Math.round(wins/nonBeTrades*100) : 0;
   const pnlClass = pnl > 0 ? "profit" : (pnl < 0 ? "loss" : "neutral");
 
-  // Prefill capital input for this week
+  // Prefill capital and goal input for this week
   const cap = Number(weeklyCapital[weekKey] || 0);
-  const weeklyCapitalInput = document.getElementById("weeklyCapitalInput");
-  if(weeklyCapitalInput) weeklyCapitalInput.value = cap ? String(cap) : "";
+  const goal = Number(weeklyGoals[weekKey] || 0);
+
+  const capEl = document.getElementById("weeklyCapitalInput");
+  const goalEl = document.getElementById("weeklyGoalInput");
+  if(capEl) capEl.value = cap ? String(cap) : "";
+  if(goalEl) goalEl.value = goal ? String(goal) : "";
 
   // ROI if capital provided
   const roi = cap > 0 ? (pnl / cap) * 100 : null;
@@ -556,15 +619,15 @@ function openWeeklyModal(weekKey, weekStartStr, weekEndStr, shortEsc){
     } else {
       weeklyTrades.sort((a, b) => a.date.localeCompare(b.date));
       weeklyTrades.forEach(t => {
-        list.innerHTML += `<div class="trade-row"><div class="trade-info">${t.date} • ${t.symbol} • ${t.result.toUpperCase()} • ${t.pnl>=0?"+":""}${Number(t.pnl).toFixed(2)}</div><div class="muted" style="margin-top:6px">${t.notes||""}</div></div>`;
+        list.innerHTML += `<div class="trade-row"><div class="trade-info">${t.date} • ${t.symbol} • ${t.result.toUpperCase()} • ${t.pnl>=0?"+":""}${Number(t.pnl).toFixed(2)} • <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:6px">${t.notes||""}</div></div>`;
       });
     }
   }
 
-  const weeklyTitle = document.getElementById("weeklyModalTitle");
-  if(weeklyTitle) weeklyTitle.innerText = `${weekKey}  (${startStr} → ${endStr})`;
-  const weeklyModal = document.getElementById("weeklyModal");
-  if(weeklyModal) weeklyModal.classList.add("show");
+  const title = document.getElementById("weeklyModalTitle");
+  if(title) title.innerText = `${weekKey}  (${startStr} → ${endStr})`;
+  const modal = document.getElementById("weeklyModal");
+  if(modal) modal.classList.add("show");
 
   currentWeekRange.start = startStr;
   currentWeekRange.end = endStr;
@@ -574,12 +637,15 @@ function openWeeklyModal(weekKey, weekStartStr, weekEndStr, shortEsc){
   const aiEl = document.getElementById("aiWeeklyReport");
   if(aiEl) aiEl.innerHTML = "";
 }
-function closeWeeklyModal(){ const el = document.getElementById("weeklyModal"); if(el) el.classList.remove("show"); }
+function closeWeeklyModal(){ const m = document.getElementById("weeklyModal"); if(m) m.classList.remove("show"); }
 
-/* ================= Save weekly capital ================= */
+/* ================= Save weekly capital & goals ================= */
 function saveWeeklyCapital(){
   const wk = currentWeekRange.weekKey;
-  if(!wk) return;
+  if(!wk){
+    showToast("Open a weekly modal first");
+    return;
+  }
   const val = parseFloat(document.getElementById("weeklyCapitalInput").value || "0");
   if(isNaN(val) || val < 0){ showToast("Enter a valid capital"); return; }
   weeklyCapital[wk] = val;
@@ -587,6 +653,22 @@ function saveWeeklyCapital(){
   showToast("Starting capital saved");
   renderWeeklyStats();
   // update modal summary
+  openWeeklyModal(wk, currentWeekRange.start, currentWeekRange.end, encodeURIComponent(currentWeekRange.summary));
+}
+
+function saveWeeklyGoal(){
+  const wk = currentWeekRange.weekKey;
+  if(!wk){
+    showToast("Open a weekly modal first");
+    return;
+  }
+  const val = parseFloat(document.getElementById("weeklyGoalInput").value || "0");
+  if(isNaN(val) || val < 0){ showToast("Enter valid weekly goal"); return; }
+  weeklyGoals[wk] = val;
+  localStorage.setItem("weeklyGoals", JSON.stringify(weeklyGoals));
+  showToast("Weekly goal saved");
+  renderWeeklyStats();
+  // refresh modal
   openWeeklyModal(wk, currentWeekRange.start, currentWeekRange.end, encodeURIComponent(currentWeekRange.summary));
 }
 
@@ -647,6 +729,14 @@ function removeFavorite(i){
 }
 
 /* ================= Daily modal / trade CRUD ================= */
+function onSourceTypeChange(){
+  const t = document.getElementById("inputSourceType");
+  const p = document.getElementById("inputSourceProvider");
+  if(!t || !p) return;
+  if(t.value === "Signal") p.style.display = "block";
+  else { p.style.display = "none"; p.value = ""; }
+}
+
 function openModal(date){
   selectedDate = date;
   selectedResult = null;
@@ -667,19 +757,28 @@ function closeModal(){
 }
 
 function saveTrade(){
-  const sym = (document.getElementById("symbolSelect").value || document.getElementById("inputSymbol").value || "").trim();
-  const pnl = parseFloat(document.getElementById("inputPnl").value || 0);
-  const notes = (document.getElementById("inputNotes").value || "").trim();
+  const symEl = document.getElementById("symbolSelect");
+  const inputSym = document.getElementById("inputSymbol");
+  const pnlEl = document.getElementById("inputPnl");
+  const notesEl = document.getElementById("inputNotes");
+  const srcType = document.getElementById("inputSourceType");
+  const srcProvider = document.getElementById("inputSourceProvider");
+
+  const sym = (symEl && symEl.value) || (inputSym && inputSym.value) || "";
+  const pnl = parseFloat((pnlEl && pnlEl.value) || 0);
+  const notes = (notesEl && notesEl.value) || "";
+  let source = "Self";
+  if(srcType && srcType.value === "Signal" && srcProvider && srcProvider.value) source = srcProvider.value;
 
   if(!sym){ alert("Enter symbol"); return; }
   if(!selectedResult){ alert("Select result (Win/Loss/BE)"); return; }
 
   if(editingId){
-    trades = trades.map(t => t.id === editingId ? { ...t, symbol: sym, pnl, notes, result: selectedResult } : t);
+    trades = trades.map(t => t.id === editingId ? { ...t, symbol: sym, pnl, notes, result: selectedResult, source } : t);
     showToast("Trade updated");
     editingId = null;
   } else {
-    trades.push({ id: Date.now().toString(), date: selectedDate, symbol: sym, pnl, notes, result: selectedResult });
+    trades.push({ id: Date.now().toString(), date: selectedDate, symbol: sym, pnl, notes, result: selectedResult, source });
     showToast("Trade saved");
   }
 
@@ -693,7 +792,7 @@ function saveTrade(){
 /* ================= Export / Import ================= */
 function exportCSV(){
   if(!trades || !trades.length){ showToast("No trades to export"); return; }
-  const headers = ["id","date","symbol","result","pnl","notes"];
+  const headers = ["id","date","symbol","result","pnl","notes","source"];
   const rows = trades.map(t => headers.map(h => {
     let v = t[h]==null ? "" : String(t[h]).replace(/"/g,'""');
     return `"${v}"`;
@@ -738,7 +837,8 @@ function importJSON(input){
           symbol: t.symbol || "NA",
           result: t.result || "be",
           pnl: Number(t.pnl) || 0,
-          notes: t.notes || ""
+          notes: t.notes || "",
+          source: t.source || "Self"
         };
       });
       localStorage.setItem("journal", JSON.stringify(trades));
@@ -767,7 +867,7 @@ function renderTradeList(){
     const div = document.createElement("div");
     div.className = "trade-row";
     div.innerHTML = `
-      <div class="trade-info">${t.symbol} • ${t.result.toUpperCase()} • ${t.pnl>=0?"+":""}${Number(t.pnl).toFixed(2)}</div>
+      <div class="trade-info">${t.symbol} • ${t.result.toUpperCase()} • ${t.pnl>=0?"+":""}${Number(t.pnl).toFixed(2)} • <span class="small-muted">${t.source||"Self"}</span></div>
       <div class="muted" style="margin-top:6px">${t.notes || ""}</div>
       <div class="trade-actions">
         <button class="btn" onclick="editTrade('${t.id}')">Edit</button>
@@ -803,10 +903,23 @@ function editTrade(id){
   const symbolSelect = document.getElementById("symbolSelect");
   const inputPnl = document.getElementById("inputPnl");
   const inputNotes = document.getElementById("inputNotes");
+  const srcType = document.getElementById("inputSourceType");
+  const srcProvider = document.getElementById("inputSourceProvider");
   if(inputSymbol) inputSymbol.value = t.symbol;
   if(symbolSelect) symbolSelect.value = "";
   if(inputPnl) inputPnl.value = t.pnl;
   if(inputNotes) inputNotes.value = t.notes;
+  if(srcType && srcProvider){
+    if(t.source && t.source !== "Self"){
+      srcType.value = "Signal";
+      srcProvider.style.display = "block";
+      srcProvider.value = t.source;
+    } else {
+      srcType.value = "Self";
+      srcProvider.style.display = "none";
+      srcProvider.value = "";
+    }
+  }
   selectedResult = t.result;
   highlightResult();
   selectedDate = t.date;
@@ -838,10 +951,14 @@ function resetInputs(){
   const inputSymbol = document.getElementById("inputSymbol");
   const inputPnl = document.getElementById("inputPnl");
   const inputNotes = document.getElementById("inputNotes");
+  const srcType = document.getElementById("inputSourceType");
+  const srcProvider = document.getElementById("inputSourceProvider");
   if(symbolSelect) symbolSelect.value = "";
   if(inputSymbol) inputSymbol.value = "";
   if(inputPnl) inputPnl.value = "";
   if(inputNotes) inputNotes.value = "";
+  if(srcType) srcType.value = "Self";
+  if(srcProvider) { srcProvider.value = ""; srcProvider.style.display = "none"; }
   selectedResult = null;
   editingId = null;
   highlightResult();
@@ -867,7 +984,7 @@ function prevMonth(){ currentMonth--; if(currentMonth < 0){ currentMonth = 11; c
 function nextMonth(){ currentMonth++; if(currentMonth > 11){ currentMonth = 0; currentYear++; } renderCalendar(); }
 
 /* ================= Gemini Integration ================= */
-/* Your Gemini API key (you provided previously) */
+/* Your Gemini API key (if you want to use it) */
 const GEMINI_API_KEY = "AIzaSyAOxXQetv8Dz4wcXBRXrE1JrwEmWnIU3bk";
 
 /* Helper to escape HTML */
@@ -876,7 +993,7 @@ function escapeHtml(text) {
   return text.replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-/* Local fallback report generator (now includes ROI) */
+/* Local fallback report generator (now includes ROI and goal analysis) */
 function localWeeklyReport(weeklyTrades, weekKey) {
   const pnl = weeklyTrades.reduce((a,t) => a + Number(t.pnl), 0);
   const wins = weeklyTrades.filter(t => t.result === "win").length;
@@ -907,6 +1024,30 @@ function localWeeklyReport(weeklyTrades, weekKey) {
       Winrate: ${rate}%<br>
       Top Symbol: ${escapeHtml(topSymbol)}<br>
       Suggestion: ${escapeHtml(suggestion)}`
+  };
+}
+
+function localWeeklyGoalAnalysis(weeklyTrades, weekKey) {
+  const pnl = weeklyTrades.reduce((a,t) => a + Number(t.pnl), 0);
+  const goal = Number(weeklyGoals[weekKey] || 0);
+  const cap = Number(weeklyCapital[weekKey] || 0);
+  const roi = cap > 0 ? (pnl / cap) * 100 : null;
+  let status = "No goal set.";
+  if(goal > 0){
+    if(pnl >= goal) status = `Goal achieved: +${pnl.toFixed(2)} vs goal ${goal.toFixed(2)}. Well done.`;
+    else if(pnl > 0) status = `Partial progress: +${pnl.toFixed(2)} of ${goal.toFixed(2)} goal.`;
+    else status = `Below target: ${pnl.toFixed(2)} vs goal ${goal.toFixed(2)}.`;
+  }
+  const advice = goal > 0 ? (pnl >= goal ? "Maintain risk and avoid overtrading." : "Focus on higher probability setups and review losses.") : "Set a weekly goal to track progress.";
+
+  return {
+    title: "Local Weekly Goal Analysis",
+    html: `<b>Local Weekly Goal Analysis:</b><br>
+      Weekly PnL: ${pnl>=0?'+':''}${pnl.toFixed(2)}<br>
+      Goal: ${goal > 0 ? goal.toFixed(2) : "N/A"}<br>
+      Status: ${escapeHtml(status)}<br>
+      ROI: ${roi !== null ? roi.toFixed(1) + '%' : "N/A"}<br>
+      Recommendation: ${escapeHtml(advice)}`
   };
 }
 
@@ -987,7 +1128,7 @@ function extractTextFromGeminiResponse(data){
   return findFirstString(data) || "";
 }
 
-// ✅ Generate Gemini report (includes ROI in prompt)
+// Generate Gemini weekly report (if key available) else local fallback
 async function generateGeminiWeeklyReport(weekStart, weekEnd, shortSummary, weekKey) {
   if (!weekStart || !weekEnd) {
     if (currentWeekRange && currentWeekRange.start && currentWeekRange.end) {
@@ -1036,6 +1177,14 @@ async function generateGeminiWeeklyReport(weekStart, weekEnd, shortSummary, week
   const cap = Number(weeklyCapital[weekKey] || 0);
   const roi = cap > 0 ? (pnl / cap) * 100 : null;
 
+  // if no API key present, fall back to local
+  if(!GEMINI_API_KEY){
+    const local = localWeeklyReport(weeklyTrades, weekKey);
+    document.getElementById("aiWeeklyReport").innerHTML = local.html;
+    showToast("Displayed local report (Gemini API key not set).");
+    return;
+  }
+
   const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
   const body = {
     contents: [
@@ -1066,16 +1215,84 @@ async function generateGeminiWeeklyReport(weekStart, weekEnd, shortSummary, week
       textOutput = local.html.replace(/<br>/g,"\n");
     }
 
-    const aiEl = document.getElementById("aiWeeklyReport");
-    if(aiEl) aiEl.innerHTML = escapeHtml(textOutput).replace(/\n/g,"<br>");
-    alert("📊 Gemini Weekly Report:\n\n" + textOutput);
-
+    document.getElementById("aiWeeklyReport").innerHTML = escapeHtml(textOutput).replace(/\n/g,"<br>");
+    showToast("Gemini report displayed");
   } catch (err) {
     console.error("Gemini API error:", err);
     const local = localWeeklyReport(weeklyTrades, weekKey);
-    const aiEl = document.getElementById("aiWeeklyReport");
-    if(aiEl) aiEl.innerHTML = local.html;
+    document.getElementById("aiWeeklyReport").innerHTML = local.html;
     alert("⚠️ Gemini API error: " + (err.message || String(err)) + "\n\nShowing local summary instead.");
+  }
+}
+
+// Gemini goal analysis (uses weeklyGoals)
+async function generateGeminiGoalAnalysis(weekStart, weekEnd, shortSummary, weekKey) {
+  if (!weekStart || !weekEnd) {
+    if (currentWeekRange && currentWeekRange.start && currentWeekRange.end) {
+      weekStart = currentWeekRange.start;
+      weekEnd = currentWeekRange.end;
+      shortSummary = currentWeekRange.summary;
+      weekKey = currentWeekRange.weekKey;
+    } else {
+      alert("⚠️ Missing week range. Open a weekly modal or click the week on the calendar first.");
+      return;
+    }
+  }
+
+  const weeklyTrades = getWeeklyTrades(weekStart, weekEnd);
+  if (!weeklyTrades || weeklyTrades.length === 0) {
+    alert("⚠️ No trades found for this week.");
+    return;
+  }
+
+  showToast("Generating Gemini goal analysis...");
+
+  const pnl = weeklyTrades.reduce((a,t)=>a+Number(t.pnl),0);
+  const goal = Number(weeklyGoals[weekKey] || 0);
+  const cap = Number(weeklyCapital[weekKey] || 0);
+  const roi = cap > 0 ? (pnl / cap) * 100 : null;
+
+  if(!GEMINI_API_KEY){
+    const local = localWeeklyGoalAnalysis(weeklyTrades, weekKey);
+    document.getElementById("aiWeeklyReport").innerHTML = local.html;
+    showToast("Displayed local goal analysis (Gemini API key not set).");
+    return;
+  }
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const body = {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text: `You are an objective trading coach. Here is the weekly data:\n\nWeekly PnL: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nWeekly Goal: ${goal || "N/A"}\nStarting Capital: ${cap || "N/A"}\nROI: ${roi !== null ? roi.toFixed(1)+"%" : "N/A"}\nTrades:\n${JSON.stringify(weeklyTrades,null,2)}\n\nPlease analyze whether the weekly goal was met, why/why not, high-level reasons (trade selection, risk, position sizing), and provide 3 practical adjustments to improve goal attainment next week. Keep concise.`
+          }
+        ]
+      }
+    ]
+  };
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    const data = await resp.json();
+    let textOutput = extractTextFromGeminiResponse(data);
+    if(!textOutput || textOutput.trim()===""){
+      const local = localWeeklyGoalAnalysis(weeklyTrades, weekKey);
+      textOutput = local.html.replace(/<br>/g,"\n");
+    }
+    document.getElementById("aiWeeklyReport").innerHTML = escapeHtml(textOutput).replace(/\n/g,"<br>");
+    showToast("Gemini goal analysis displayed");
+  } catch (err) {
+    console.error("Gemini API error:", err);
+    const local = localWeeklyGoalAnalysis(weeklyTrades, weekKey);
+    document.getElementById("aiWeeklyReport").innerHTML = local.html;
+    alert("⚠️ Gemini API error: " + (err.message || String(err)) + "\n\nShowing local analysis instead.");
   }
 }
 
@@ -1180,9 +1397,9 @@ function buildHistogramData(bins = 12) {
   return { labels, data: counts };
 }
 
-function buildSymbolCounts(limit = 8) {
+function buildSourceCounts(limit = 12) {
   const map = {};
-  trades.forEach(t => { map[t.symbol] = (map[t.symbol] || 0) + 1; });
+  trades.forEach(t => { const s = t.source || "Self"; map[s] = (map[s] || 0) + 1; });
   const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
   const labels = entries.slice(0,limit).map(e=>e[0]);
   const data = entries.slice(0,limit).map(e=>e[1]);
@@ -1204,7 +1421,7 @@ function renderCharts() {
   const eq = aggregateByDateAllTrades();
   const res = buildResultsDistribution();
   const hist = buildHistogramData(12);
-  const sym = buildSymbolCounts(12);
+  const src = buildSourceCounts(12);
 
   // Equity chart
   const eqEl = document.getElementById("equityChart");
@@ -1226,8 +1443,7 @@ function renderCharts() {
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 2.2,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           x: { display: true },
@@ -1237,7 +1453,7 @@ function renderCharts() {
     });
   }
 
-  // Pie chart
+  // Pie chart (results distribution)
   const pieEl = document.getElementById("pieChart");
   if(pieEl){
     const ctxPie = pieEl.getContext("2d");
@@ -1253,8 +1469,7 @@ function renderCharts() {
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 1, // keep pie square-ish to avoid stretching
+        maintainAspectRatio: false,
         plugins: { legend: { position: "bottom" } }
       }
     });
@@ -1277,8 +1492,7 @@ function renderCharts() {
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 2.2,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           x: { display: true, ticks: { maxRotation: 30, minRotation: 30 } },
@@ -1288,25 +1502,24 @@ function renderCharts() {
     });
   }
 
-  // Trades by symbol
-  const symEl = document.getElementById("symbolChart");
-  if(symEl){
-    const ctxSym = symEl.getContext("2d");
-    if(symbolChart) symbolChart.destroy();
-    symbolChart = new Chart(ctxSym, {
+  // Source distribution chart
+  const srcEl = document.getElementById("sourceChart");
+  if(srcEl){
+    const ctxSrc = srcEl.getContext("2d");
+    if(sourceChart) sourceChart.destroy();
+    sourceChart = new Chart(ctxSrc, {
       type: "bar",
       data: {
-        labels: sym.labels,
+        labels: src.labels,
         datasets: [{
           label: "Trades",
-          data: sym.data,
+          data: src.data,
           borderWidth: 1
         }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 2.2,
+        maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
           x: { display: true },
@@ -1334,6 +1547,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if(e.key === "Enter"){ e.preventDefault(); saveTrade(); }
     });
   }
+
+  // wire source selector change handler
+  const srcType = document.getElementById("inputSourceType");
+  if(srcType) srcType.addEventListener("change", onSourceTypeChange);
 
   // initial renders
   renderFavoritesDropdown();
