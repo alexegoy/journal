@@ -449,7 +449,20 @@
     body.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); }
     body.light::before { background: radial-gradient(ellipse 80% 40% at 20% 10%, rgba(59,130,246,0.05) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(139,92,246,0.04) 0%, transparent 60%); }
 
-    /* Commission row (kept for label+input pairs) */
+    /* Screenshot grid */
+    .screenshot-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:8px; margin-top:8px; }
+    .screenshot-grid-item { position:relative; aspect-ratio:4/3; border-radius:8px; overflow:hidden; border:1px solid var(--border); }
+    .screenshot-grid-item img { width:100%; height:100%; object-fit:cover; cursor:pointer; display:block; transition:opacity 0.15s; }
+    .screenshot-grid-item img:hover { opacity:0.85; }
+    .screenshot-grid-item .remove-img { position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.7); color:#fff; border:none; border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:12px; line-height:20px; text-align:center; padding:0; transition:background 0.15s; }
+    .screenshot-grid-item .remove-img:hover { background:rgba(248,81,73,0.85); }
+    .screenshot-add-more { aspect-ratio:4/3; border-radius:8px; border:1px dashed rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:22px; color:var(--muted); transition:all 0.15s; }
+    .screenshot-add-more:hover { border-color:rgba(59,130,246,0.5); color:#60a5fa; background:rgba(59,130,246,0.06); }
+
+    /* Trade row thumbnails strip */
+    .thumb-strip { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+    .thumb-strip img { width:52px; height:38px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid var(--border); transition:opacity 0.15s; }
+    .thumb-strip img:hover { opacity:0.8; }
     .commission-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
     .commission-row label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; min-width: 90px; }
     .commission-row input { margin: 0; flex: 1; min-width: 0; }
@@ -594,16 +607,13 @@
       </div>
 
       <div class="field-group">
-        <label class="field-label">Screenshot</label>
+        <label class="field-label">Screenshots <span class="small-muted">(optional, multiple)</span></label>
         <div class="screenshot-area">
           <div class="screenshot-drop" id="screenshotDrop" onclick="document.getElementById('screenshotInput').click()">
-            📷 Click to attach trade screenshot (JPEG/PNG)
+            📷 Click to add screenshots (JPEG/PNG — can select multiple)
           </div>
-          <input id="screenshotInput" type="file" accept="image/jpeg,image/png,image/jpg" class="hidden-file" onchange="handleScreenshot(this)" />
-          <div class="screenshot-preview" id="screenshotPreview">
-            <img id="screenshotImg" src="" alt="Trade screenshot" onclick="openLightbox(this.src)" />
-            <button class="remove-img" onclick="removeScreenshot()">&times;</button>
-          </div>
+          <input id="screenshotInput" type="file" accept="image/jpeg,image/png,image/jpg" class="hidden-file" multiple onchange="handleScreenshot(this)" />
+          <div id="screenshotGrid" class="screenshot-grid"></div>
         </div>
       </div>
 
@@ -897,16 +907,20 @@ function openWeeklyModal(weekKey,weekStartStr,weekEndStr,shortEsc){
       const net=netPnl(t);
       const cs=c>0?` <span class="trade-comm">-${c.toFixed(2)} comm</span>`:"";
       const ls=t.lotSize!=null&&t.lotSize>0?` <span class="small-muted">| ${t.lotSize} lot</span>`:"";
+      const imgs=Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[]);
       const row=document.createElement("div");
       row.className="trade-row";
       row.innerHTML=`<div>${t.date} &bull; ${t.symbol} &bull; ${t.result.toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:6px">${t.notes||""}</div>`;
-      if(t.screenshot){
-        const viewBtn=document.createElement("button");
-        viewBtn.className="btn";
-        viewBtn.style.cssText="padding:4px 8px;font-size:11px;margin-top:6px";
-        viewBtn.textContent="📷 View";
-        viewBtn.addEventListener("click",()=>openLightbox(t.screenshot));
-        row.appendChild(viewBtn);
+      if(imgs.length){
+        const strip=document.createElement("div");
+        strip.className="thumb-strip";
+        imgs.forEach(src=>{
+          const img=document.createElement("img");
+          img.src=src; img.alt="screenshot";
+          img.addEventListener("click",()=>openLightbox(src));
+          strip.appendChild(img);
+        });
+        row.appendChild(strip);
       }
       list.appendChild(row);
     });
@@ -1004,7 +1018,7 @@ function saveTrade(){
   const lotVal=document.getElementById("inputLotSize").value;
   const lotSize=lotVal!==""?Math.abs(parseFloat(lotVal)||0):null;
   const notes=document.getElementById("inputNotes").value||"";
-  const screenshot=document.getElementById("screenshotImg").src&&document.getElementById("screenshotPreview").style.display!=="none"?document.getElementById("screenshotImg").src:"";
+  const screenshots=getPendingScreenshots();
   const srcType=document.getElementById("inputSourceType");
   const srcProvider=document.getElementById("inputSourceProvider");
   let source="Self";
@@ -1015,10 +1029,10 @@ function saveTrade(){
   if(commission<0){alert("Commission cannot be negative");return;}
 
   if(editingId){
-    trades=trades.map(t=>t.id===editingId?{...t,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshot}:t);
+    trades=trades.map(t=>t.id===editingId?{...t,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshots}:t);
     showToast("Trade updated");editingId=null;
   } else {
-    trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshot});
+    trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshots});
     showToast("Trade saved");
   }
   localStorage.setItem("journal",JSON.stringify(trades));
@@ -1033,7 +1047,7 @@ function exportCSV(){
     let v;
     if(h==="net_pnl")v=netPnl(t).toFixed(2);
     else if(h==="lot_size")v=t.lotSize!=null?t.lotSize:"";
-    else if(h==="has_screenshot")v=t.screenshot?"yes":"no";
+    else if(h==="has_screenshot")v=(t.screenshots&&t.screenshots.length)||(t.screenshot)?"yes":"no";
     else v=t[h]==null?"":String(t[h]).replace(/"/g,'""');
     return`"${v}"`;
   }).join(","));
@@ -1068,7 +1082,8 @@ function importJSON(input){
         lotSize:t.lotSize!=null?Number(t.lotSize):null,
         notes:t.notes||"",
         source:t.source||"Self",
-        screenshot:t.screenshot||""
+        // migrate old single screenshot to array
+        screenshots:Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[])
       }));
       localStorage.setItem("journal",JSON.stringify(trades));
       renderCalendar();showToast("JSON imported");
@@ -1090,27 +1105,32 @@ function renderTradeList(){
     const net=netPnl(t);
     const cs=comm>0?` <span class="trade-comm" title="Gross: ${Number(t.pnl)>=0?"+":""}${Number(t.pnl).toFixed(2)}">-${comm.toFixed(2)} comm</span>`:"";
     const ls=t.lotSize!=null&&t.lotSize>0?` <span class="small-muted">| ${t.lotSize} lot</span>`:"";
+    // normalise: support both old single screenshot and new array
+    const imgs=Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[]);
 
     const div=document.createElement("div");
     div.className="trade-row";
 
-    // Build top row — avoid putting screenshot src inside innerHTML to prevent HTML breakage
     const topDiv=document.createElement("div");
     topDiv.className="trade-row-top";
 
     const infoDiv=document.createElement("div");
     infoDiv.className="trade-row-info";
     infoDiv.innerHTML=`<div>${t.symbol} &bull; ${t.result.toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:4px">${t.notes||""}</div>`;
-    topDiv.appendChild(infoDiv);
 
-    if(t.screenshot){
-      const thumb=document.createElement("img");
-      thumb.className="trade-thumb";
-      thumb.src=t.screenshot;
-      thumb.alt="screenshot";
-      thumb.addEventListener("click",()=>openLightbox(t.screenshot));
-      topDiv.appendChild(thumb);
+    // thumbnail strip
+    if(imgs.length){
+      const strip=document.createElement("div");
+      strip.className="thumb-strip";
+      imgs.forEach(src=>{
+        const img=document.createElement("img");
+        img.src=src; img.alt="screenshot";
+        img.addEventListener("click",()=>openLightbox(src));
+        strip.appendChild(img);
+      });
+      infoDiv.appendChild(strip);
     }
+    topDiv.appendChild(infoDiv);
     div.appendChild(topDiv);
 
     // Action buttons — created via DOM to avoid any id/string escaping issues
@@ -1131,11 +1151,11 @@ function renderTradeList(){
     actions.appendChild(editBtn);
     actions.appendChild(delBtn);
 
-    if(t.screenshot){
+    if(imgs.length){
       const viewBtn=document.createElement("button");
       viewBtn.className="btn";
-      viewBtn.textContent="📷 View";
-      viewBtn.addEventListener("click",()=>openLightbox(t.screenshot));
+      viewBtn.textContent=`📷 ${imgs.length > 1 ? imgs.length+" photos" : "View"}`;
+      viewBtn.addEventListener("click",()=>openLightbox(imgs[0]));
       actions.appendChild(viewBtn);
     }
 
@@ -1169,15 +1189,9 @@ function editTrade(id){
   document.getElementById("inputCommission").value=t.commission||"";
   document.getElementById("inputLotSize").value=t.lotSize!=null?t.lotSize:"";
   document.getElementById("inputNotes").value=t.notes;
-  // restore screenshot
-  if(t.screenshot){
-    document.getElementById("screenshotImg").src=t.screenshot;
-    document.getElementById("screenshotPreview").style.display="block";
-    document.getElementById("screenshotDrop").classList.add("has-image");
-    document.getElementById("screenshotDrop").innerHTML="&#128247; Screenshot attached — click to replace";
-  } else {
-    removeScreenshot();
-  }
+  // restore screenshots
+  const imgs=Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[]);
+  setPendingScreenshots(imgs);
   const st=document.getElementById("inputSourceType");
   const sp=document.getElementById("inputSourceProvider");
   if(t.source&&t.source!=="Self"){st.value="Signal";sp.style.display="block";sp.value=t.source;}
@@ -1210,7 +1224,7 @@ function resetInputs(){
   document.getElementById("inputNotes").value="";
   document.getElementById("inputSourceType").value="Self";
   const sp=document.getElementById("inputSourceProvider");sp.value="";sp.style.display="none";
-  removeScreenshot();
+  setPendingScreenshots([]);
   selectedResult=null;editingId=null;highlightResult();
 }
 function highlightResult(){
@@ -1373,45 +1387,102 @@ function renderCharts(){
   if(srcEl){const c=srcEl.getContext("2d");if(sourceChart)sourceChart.destroy();sourceChart=new Chart(c,{type:"bar",data:{labels:src.labels,datasets:[{label:"Trades",data:src.data,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});}
 }
 
-/* ===== Screenshot handling ===== */
-function handleScreenshot(input){
-  const file=input.files&&input.files[0];
-  if(!file)return;
-  if(!file.type.startsWith("image/")){showToast("Please select an image file");return;}
-  // Warn if file is very large (>3MB compressed might bloat localStorage)
-  if(file.size>5*1024*1024){
-    if(!confirm("This image is large (>5MB) and may bloat localStorage. Continue?"))return;
-  }
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const dataUrl=e.target.result;
-    // Optionally compress: draw to canvas and re-encode at 0.75 quality
-    const img=new Image();
-    img.onload=function(){
-      const maxW=1200;
-      let w=img.width,h=img.height;
-      if(w>maxW){h=Math.round(h*(maxW/w));w=maxW;}
-      const canvas=document.createElement("canvas");
-      canvas.width=w;canvas.height=h;
-      canvas.getContext("2d").drawImage(img,0,0,w,h);
-      const compressed=canvas.toDataURL("image/jpeg",0.75);
-      document.getElementById("screenshotImg").src=compressed;
-      document.getElementById("screenshotPreview").style.display="block";
-      document.getElementById("screenshotDrop").classList.add("has-image");
-      document.getElementById("screenshotDrop").innerHTML="&#128247; Screenshot attached — click to replace";
-    };
-    img.src=dataUrl;
-  };
-  reader.readAsDataURL(file);
-  input.value=""; // reset so same file can be re-selected
+/* ===== Screenshot handling (multiple) ===== */
+let pendingScreenshots = []; // array of base64 dataURLs for current form session
+
+function getPendingScreenshots(){ return [...pendingScreenshots]; }
+
+function setPendingScreenshots(arr){
+  pendingScreenshots = arr || [];
+  renderScreenshotGrid();
 }
 
-function removeScreenshot(){
-  document.getElementById("screenshotImg").src="";
-  document.getElementById("screenshotPreview").style.display="none";
-  document.getElementById("screenshotDrop").classList.remove("has-image");
-  document.getElementById("screenshotDrop").innerHTML="&#128247; Click to attach a trade screenshot (JPEG/PNG, optional)";
+function renderScreenshotGrid(){
+  const grid = document.getElementById("screenshotGrid");
+  const drop = document.getElementById("screenshotDrop");
+  if(!grid) return;
+  grid.innerHTML = "";
+
+  if(pendingScreenshots.length === 0){
+    drop.innerHTML = "📷 Click to add screenshots (JPEG/PNG — can select multiple)";
+    drop.classList.remove("has-image");
+    return;
+  }
+
+  drop.innerHTML = `📷 ${pendingScreenshots.length} screenshot${pendingScreenshots.length>1?"s":""} attached — click to add more`;
+  drop.classList.add("has-image");
+
+  pendingScreenshots.forEach((src, i) => {
+    const item = document.createElement("div");
+    item.className = "screenshot-grid-item";
+
+    const img = document.createElement("img");
+    img.src = src; img.alt = `Screenshot ${i+1}`;
+    img.addEventListener("click", () => openLightbox(src));
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "remove-img";
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", (e) => { e.stopPropagation(); removeScreenshotAt(i); });
+
+    item.appendChild(img);
+    item.appendChild(removeBtn);
+    grid.appendChild(item);
+  });
+
+  // "add more" tile
+  const addTile = document.createElement("div");
+  addTile.className = "screenshot-add-more";
+  addTile.textContent = "+";
+  addTile.title = "Add more screenshots";
+  addTile.addEventListener("click", () => document.getElementById("screenshotInput").click());
+  grid.appendChild(addTile);
 }
+
+function removeScreenshotAt(index){
+  pendingScreenshots.splice(index, 1);
+  renderScreenshotGrid();
+}
+
+function handleScreenshot(input){
+  const files = input.files;
+  if(!files || !files.length) return;
+
+  const toProcess = Array.from(files).filter(f => f.type.startsWith("image/"));
+  if(!toProcess.length){ showToast("Please select image files"); return; }
+
+  const totalSize = toProcess.reduce((a,f)=>a+f.size,0);
+  if(totalSize > 10*1024*1024){
+    if(!confirm(`Total size is large (${(totalSize/1024/1024).toFixed(1)}MB). This may use significant localStorage space. Continue?`)) return;
+  }
+
+  let processed = 0;
+  toProcess.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        const maxW = 1200;
+        let w = img.width, h = img.height;
+        if(w > maxW){ h = Math.round(h*(maxW/w)); w = maxW; }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL("image/jpeg", 0.75);
+        pendingScreenshots.push(compressed);
+        processed++;
+        if(processed === toProcess.length) renderScreenshotGrid();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  input.value = ""; // reset so same files can be re-selected
+}
+
+// kept for backward compat (called nowhere now but safe to keep)
+function removeScreenshot(){ setPendingScreenshots([]); }
 
 function openLightbox(src){
   document.getElementById("lightboxImg").src=src;
