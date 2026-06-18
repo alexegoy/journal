@@ -466,6 +466,49 @@
     .commission-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
     .commission-row label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; min-width: 90px; }
     .commission-row input { margin: 0; flex: 1; min-width: 0; }
+
+    /* ── Prop Firm tab ── */
+    .prop-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 12px; backdrop-filter: blur(12px); }
+    .prop-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; font-weight: 600; font-size: 14px; }
+    .prop-rules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; margin-bottom: 4px; }
+    .rule-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; position: relative; overflow: hidden; }
+    .rule-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 6px; }
+    .rule-value { font-size: 20px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+    .rule-sub { font-size: 11px; color: var(--muted); }
+    .rule-bar-outer { height: 5px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; margin-top: 8px; }
+    .rule-bar-inner { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+    .rule-card.safe { border-color: rgba(63,185,80,0.25); } .rule-card.safe .rule-value { color: var(--green); } .rule-card.safe .rule-bar-inner { background: var(--green); }
+    .rule-card.warn { border-color: rgba(240,136,62,0.35); } .rule-card.warn .rule-value { color: var(--amber); } .rule-card.warn .rule-bar-inner { background: var(--amber); }
+    .rule-card.danger { border-color: rgba(248,81,73,0.4); box-shadow: 0 0 16px rgba(248,81,73,0.1); } .rule-card.danger .rule-value { color: var(--red); } .rule-card.danger .rule-bar-inner { background: var(--red); }
+    .rule-card.neutral .rule-value { color: var(--text); } .rule-card.neutral .rule-bar-inner { background: var(--accent); }
+    .prop-info-card { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); border-radius: var(--radius-sm); padding: 14px; font-size: 13px; color: #93c5fd; line-height: 1.6; }
+    .payout-row { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .payout-amount { font-size: 18px; font-weight: 700; color: var(--green); }
+    .payout-your-cut { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    @media (max-width: 480px) { .prop-rules-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    /* Cycle cards */
+    .cycle-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; margin-bottom:10px; }
+    .cycle-card.active-cycle { border-color:rgba(59,130,246,0.5); box-shadow:0 0 18px rgba(59,130,246,0.1); }
+    .cycle-card.profit-cycle { border-left:3px solid var(--green); }
+    .cycle-card.loss-cycle { border-left:3px solid var(--red); }
+    .cycle-card.ongoing-cycle { border-left:3px solid var(--accent); }
+    .cycle-header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+    .cycle-num { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+    .cycle-dates { font-size:13px; font-weight:600; }
+    .cycle-pnl { font-size:22px; font-weight:700; letter-spacing:-0.5px; }
+    .cycle-pnl.positive { color:var(--green); }
+    .cycle-pnl.negative { color:var(--red); }
+    .cycle-pnl.ongoing { color:var(--accent); }
+    .cycle-meta { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.6; }
+    .cycle-payout-badge { display:inline-flex; align-items:center; gap:5px; background:rgba(63,185,80,0.12); border:1px solid rgba(63,185,80,0.25); border-radius:20px; padding:3px 10px; font-size:11px; font-weight:600; color:var(--green); margin-top:6px; }
+    .cycle-payout-pending { background:rgba(240,136,62,0.1); border-color:rgba(240,136,62,0.3); color:var(--amber); }
+    .cycle-actions { display:flex; gap:6px; margin-top:10px; }
+    .cycle-bar-outer { height:4px; background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden; margin-top:10px; }
+    .cycle-bar-inner { height:100%; border-radius:99px; }
+    .prop-totals-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; display:flex; gap:16px; flex-wrap:wrap; }
+    .prop-total-item { min-width:120px; }
+    .active-banner { background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.3); border-radius:var(--radius-sm); padding:14px 16px; font-size:13px; color:#93c5fd; line-height:1.7; }
   </style>
 </head>
 <body>
@@ -491,6 +534,7 @@
   <div class="tabs">
     <div id="tabJournal" class="tab active" onclick="switchTab('journal')">Journal</div>
     <div id="tabCharts" class="tab" onclick="switchTab('charts')">Charts</div>
+    <div id="tabProp" class="tab" onclick="switchTab('prop')">🏦 Prop Firm</div>
   </div>
 
   <!-- Journal tab -->
@@ -538,7 +582,108 @@
     <p class="muted" style="margin-top:12px">All charts use Net P&amp;L (after commission). Updates live.</p>
   </div>
 
-</div><!-- /app -->
+  <!-- Prop Firm tab -->
+  <div id="propTab" style="display:none">
+
+    <!-- Account Setup (one-time, compact) -->
+    <div class="prop-card" id="propSetupCard">
+      <div class="prop-card-header">
+        <span>⚙️ Account Setup</span>
+        <button class="btn btn-primary" onclick="savePropSettings()">Save</button>
+      </div>
+      <div class="field-row">
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Model</label>
+          <select id="propModel" onchange="onPropModelChange()">
+            <option value="stellar2">Stellar 2-Step</option>
+            <option value="stellar1">Stellar 1-Step</option>
+            <option value="stellarlite">Stellar Lite</option>
+          </select>
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Phase</label>
+          <select id="propPhase" onchange="savePropSettings()">
+            <option value="phase1">Phase 1</option>
+            <option value="phase2">Phase 2</option>
+            <option value="funded">Funded ✅</option>
+          </select>
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Account Size ($)</label>
+          <input id="propAccountSize" type="number" placeholder="e.g. 10000" step="0.01" />
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:10px">
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Daily Loss Limit (%)</label>
+          <input id="propDailyLossPct" type="number" placeholder="5" step="0.1" />
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Max Drawdown (%)</label>
+          <input id="propMaxDdPct" type="number" placeholder="10" step="0.1" />
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Profit Split (%)</label>
+          <input id="propProfitSplit" type="number" placeholder="80" step="1" />
+        </div>
+      </div>
+      <p class="comm-hint" style="margin-top:6px">Rules auto-fill when you pick a model. Edit freely if your account differs.</p>
+    </div>
+
+    <!-- Rules dashboard (live) -->
+    <div class="section-title">📊 Rules Tracker</div>
+    <div id="propRulesDashboard" class="prop-rules-grid"></div>
+
+    <!-- Active cycle banner -->
+    <div id="activeCycleBanner" style="display:none;margin:14px 0"></div>
+
+    <!-- Trading Cycles -->
+    <div class="section-title" style="margin-top:16px">🔄 Trading Cycles</div>
+    <div class="prop-card">
+      <div class="prop-card-header">
+        <span>New Cycle</span>
+        <button class="btn btn-primary" onclick="addCycle()">+ Add Cycle</button>
+      </div>
+      <div class="field-row">
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Cycle Start</label>
+          <input id="cycleStart" type="date" />
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Cycle End</label>
+          <input id="cycleEnd" type="date" />
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Starting Balance ($)</label>
+          <input id="cycleStartBal" type="number" placeholder="e.g. 10000" step="0.01" />
+        </div>
+      </div>
+      <div class="field-row" style="margin-top:10px">
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Closing Balance ($) <span class="small-muted">leave blank if ongoing</span></label>
+          <input id="cycleEndBal" type="number" placeholder="e.g. 10540" step="0.01" />
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Payout Date <span class="small-muted">(optional)</span></label>
+          <input id="cyclePayoutDate" type="date" />
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Payout Amount ($) <span class="small-muted">(optional)</span></label>
+          <input id="cyclePayoutAmt" type="number" placeholder="e.g. 432" step="0.01" />
+        </div>
+      </div>
+      <div class="field-group" style="margin-top:10px">
+        <label class="field-label">Notes</label>
+        <input id="cycleNotes" type="text" placeholder="e.g. Good consistency, avoided overtrading" />
+      </div>
+    </div>
+
+    <div id="cycleList"></div>
+
+    <!-- Totals -->
+    <div id="propTotals" style="margin-top:4px"></div>
+
+  </div>
 
   <!-- DAILY modal -->
   <div class="modal" id="modal" aria-hidden="true">
@@ -723,9 +868,12 @@ function sundayOfWeekLocal(d){
 function switchTab(name){
   document.getElementById("journalTab").style.display=name==="journal"?"":"none";
   document.getElementById("chartsTab").style.display=name==="charts"?"":"none";
+  document.getElementById("propTab").style.display=name==="prop"?"":"none";
   document.getElementById("tabJournal").classList.toggle("active",name==="journal");
   document.getElementById("tabCharts").classList.toggle("active",name==="charts");
+  document.getElementById("tabProp").classList.toggle("active",name==="prop");
   if(name==="charts")renderCharts();
+  if(name==="prop"){ loadPropSettingsToForm(); renderPropDashboard(); renderCycleList(); }
 }
 
 /* ===== Calendar ===== */
@@ -1385,6 +1533,330 @@ function renderCharts(){
   if(histEl){const c=histEl.getContext("2d");if(histChart)histChart.destroy();histChart=new Chart(c,{type:"bar",data:{labels:hist.labels,datasets:[{label:"Count",data:hist.data,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxRotation:30,minRotation:30}}}}});}
   const srcEl=document.getElementById("sourceChart");
   if(srcEl){const c=srcEl.getContext("2d");if(sourceChart)sourceChart.destroy();sourceChart=new Chart(c,{type:"bar",data:{labels:src.labels,datasets:[{label:"Trades",data:src.data,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});}
+}
+
+/* ===== Prop Firm (FundedNext) ===== */
+const PROP_MODELS = {
+  stellar2:    { label:"Stellar 2-Step",  dailyLossPct:5, maxDdPct:10, profitSplit:80, payoutWait:21, payoutCycle:14 },
+  stellar1:    { label:"Stellar 1-Step",  dailyLossPct:3, maxDdPct:6,  profitSplit:80, payoutWait:5,  payoutCycle:5  },
+  stellarlite: { label:"Stellar Lite",    dailyLossPct:5, maxDdPct:8,  profitSplit:80, payoutWait:21, payoutCycle:14 },
+};
+
+let propSettings = JSON.parse(localStorage.getItem("propSettings") || "null") || {
+  model:"stellar2", phase:"funded", accountSize:10000,
+  dailyLossPct:5, maxDdPct:10, profitSplit:80
+};
+let cycles = JSON.parse(localStorage.getItem("cycles") || "[]");
+
+/* ── Setup ── */
+function onPropModelChange(){
+  const r = PROP_MODELS[document.getElementById("propModel").value];
+  if(!r) return;
+  document.getElementById("propDailyLossPct").value = r.dailyLossPct;
+  document.getElementById("propMaxDdPct").value = r.maxDdPct;
+  document.getElementById("propProfitSplit").value = r.profitSplit;
+}
+
+function loadPropSettingsToForm(){
+  const s = propSettings;
+  document.getElementById("propModel").value = s.model || "stellar2";
+  document.getElementById("propPhase").value = s.phase || "funded";
+  document.getElementById("propAccountSize").value = s.accountSize || "";
+  document.getElementById("propDailyLossPct").value = s.dailyLossPct || "";
+  document.getElementById("propMaxDdPct").value = s.maxDdPct || "";
+  document.getElementById("propProfitSplit").value = s.profitSplit || "";
+}
+
+function savePropSettings(){
+  propSettings = {
+    model: document.getElementById("propModel").value,
+    phase: document.getElementById("propPhase").value,
+    accountSize: parseFloat(document.getElementById("propAccountSize").value) || 0,
+    dailyLossPct: parseFloat(document.getElementById("propDailyLossPct").value) || 5,
+    maxDdPct: parseFloat(document.getElementById("propMaxDdPct").value) || 10,
+    profitSplit: parseFloat(document.getElementById("propProfitSplit").value) || 80,
+  };
+  localStorage.setItem("propSettings", JSON.stringify(propSettings));
+  renderPropDashboard();
+  showToast("Settings saved ✅");
+}
+
+/* ── Cycles CRUD ── */
+function addCycle(){
+  const start = document.getElementById("cycleStart").value;
+  const end   = document.getElementById("cycleEnd").value;
+  const startBal = parseFloat(document.getElementById("cycleStartBal").value) || 0;
+  const endBal   = document.getElementById("cycleEndBal").value !== "" ? parseFloat(document.getElementById("cycleEndBal").value) : null;
+  const payoutDate = document.getElementById("cyclePayoutDate").value || "";
+  const payoutAmt  = document.getElementById("cyclePayoutAmt").value !== "" ? parseFloat(document.getElementById("cyclePayoutAmt").value) : null;
+  const notes = document.getElementById("cycleNotes").value || "";
+
+  if(!start){ showToast("Enter a cycle start date"); return; }
+  if(startBal <= 0){ showToast("Enter starting balance"); return; }
+
+  cycles.push({ id:Date.now().toString(), start, end, startBal, endBal, payoutDate, payoutAmt, notes });
+  localStorage.setItem("cycles", JSON.stringify(cycles));
+
+  // clear form
+  ["cycleStart","cycleEnd","cycleStartBal","cycleEndBal","cyclePayoutDate","cyclePayoutAmt","cycleNotes"]
+    .forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
+
+  renderCycleList();
+  renderPropDashboard();
+  showToast("Cycle added ✅");
+}
+
+function deleteCycle(id){
+  if(!confirm("Delete this cycle?")) return;
+  cycles = cycles.filter(c => c.id !== id);
+  localStorage.setItem("cycles", JSON.stringify(cycles));
+  renderCycleList();
+  renderPropDashboard();
+  showToast("Cycle deleted");
+}
+
+function editCycleField(id, field, value){
+  cycles = cycles.map(c => c.id === id ? {...c, [field]: value === "" ? null : (field==="notes"||field==="payoutDate"||field==="start"||field==="end" ? value : parseFloat(value)||null)} : c);
+  localStorage.setItem("cycles", JSON.stringify(cycles));
+  renderCycleList();
+  renderPropDashboard();
+}
+
+/* ── Render cycles ── */
+function renderCycleList(){
+  const box = document.getElementById("cycleList");
+  if(!box) return;
+  box.innerHTML = "";
+
+  const sorted = [...cycles].sort((a,b) => (a.start||"").localeCompare(b.start||"")).reverse();
+  if(!sorted.length){
+    box.innerHTML = `<p class="muted" style="margin:8px 0 16px">No cycles logged yet. Add your first trading cycle above.</p>`;
+    renderPropTotals();
+    return;
+  }
+
+  const todayStr = formatDateLocal(new Date());
+  const split = propSettings.profitSplit || 80;
+
+  sorted.forEach((c, idx) => {
+    const num = sorted.length - idx;
+    const ongoing = !c.end || c.end >= todayStr;
+    const pnl = c.endBal != null ? c.endBal - c.startBal : null;
+    const pnlPct = pnl != null && c.startBal > 0 ? (pnl / c.startBal) * 100 : null;
+    const yourCut = pnl != null && pnl > 0 ? pnl * (split / 100) : 0;
+
+    let cardCls = ongoing ? "ongoing-cycle" : (pnl > 0 ? "profit-cycle" : pnl < 0 ? "loss-cycle" : "");
+    let pnlCls  = ongoing ? "ongoing" : (pnl > 0 ? "positive" : pnl < 0 ? "negative" : "");
+    let pnlText = ongoing ? "Ongoing" : (pnl != null ? (pnl >= 0 ? "+" : "") + "$" + pnl.toFixed(2) : "—");
+
+    // days in cycle
+    const daysInCycle = c.start && c.end ? Math.round((new Date(c.end+"T00:00:00") - new Date(c.start+"T00:00:00")) / 86400000) + 1 : null;
+
+    // payout badge
+    let payoutBadge = "";
+    if(c.payoutAmt != null && c.payoutAmt > 0){
+      payoutBadge = `<span class="cycle-payout-badge">💸 Paid $${Number(c.payoutAmt).toFixed(2)}${c.payoutDate ? " on " + c.payoutDate : ""}</span>`;
+    } else if(!ongoing){
+      payoutBadge = `<span class="cycle-payout-badge cycle-payout-pending">⏳ Payout pending</span>`;
+    }
+
+    // progress bar (how far into cycle by days or profit)
+    const acct = propSettings.accountSize || c.startBal;
+    const maxDdAmt = acct * ((propSettings.maxDdPct||10) / 100);
+    const ddUsed = pnl != null ? Math.max(0, -pnl) : 0;
+    const ddPct = Math.min(100, (ddUsed / maxDdAmt) * 100);
+    const barColor = ddPct > 80 ? "#f85149" : ddPct > 60 ? "#f0883e" : "#3b82f6";
+
+    const div = document.createElement("div");
+    div.className = `cycle-card ${cardCls}`;
+    div.innerHTML = `
+      <div class="cycle-header">
+        <div>
+          <div class="cycle-num">Cycle #${num}${ongoing ? " · 🟢 Active" : ""}</div>
+          <div class="cycle-dates">${c.start} ${c.end ? "→ " + c.end : "→ present"}</div>
+          <div class="cycle-meta">
+            Start: $${Number(c.startBal).toFixed(2)}
+            ${c.endBal != null ? " · End: $" + Number(c.endBal).toFixed(2) : ""}
+            ${daysInCycle ? " · " + daysInCycle + " days" : ""}
+            ${yourCut > 0 ? " · Your cut: <b style='color:var(--green)'>$" + yourCut.toFixed(2) + "</b>" : ""}
+          </div>
+          ${payoutBadge}
+          ${c.notes ? `<div class="cycle-meta" style="margin-top:6px;font-style:italic">${c.notes}</div>` : ""}
+        </div>
+        <div style="text-align:right">
+          <div class="cycle-pnl ${pnlCls}">${pnlText}</div>
+          ${pnlPct != null ? `<div class="cycle-meta">${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%</div>` : ""}
+        </div>
+      </div>
+      ${ongoing ? `<div class="cycle-bar-outer"><div class="cycle-bar-inner" style="width:${ddPct}%;background:${barColor}"></div></div>` : ""}
+    `;
+
+    // action buttons
+    const actions = document.createElement("div");
+    actions.className = "cycle-actions";
+
+    if(ongoing){
+      // Quick close button — fills end balance + end date
+      const closeBtn = document.createElement("button");
+      closeBtn.className = "btn btn-primary";
+      closeBtn.textContent = "✔ Close Cycle";
+      closeBtn.onclick = () => openCloseCycleModal(c.id);
+      actions.appendChild(closeBtn);
+    }
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-danger";
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", () => deleteCycle(c.id));
+    actions.appendChild(delBtn);
+
+    div.appendChild(actions);
+    box.appendChild(div);
+  });
+
+  renderPropTotals();
+}
+
+/* ── Close cycle modal (quick inline) ── */
+function openCloseCycleModal(id){
+  const c = cycles.find(x => x.id === id);
+  if(!c) return;
+  const todayStr = formatDateLocal(new Date());
+
+  const endBal = prompt(`Close Cycle\n\nEnter closing balance ($):`, c.endBal || "");
+  if(endBal === null) return;
+  const payoutAmt = prompt("Payout amount received ($):\n(Leave blank if not yet paid)", c.payoutAmt || "");
+  const payoutDate = prompt("Payout date (YYYY-MM-DD):\n(Leave blank if not yet paid)", c.payoutDate || "");
+
+  editCycleField(id, "end", todayStr);
+  if(endBal !== "") editCycleField(id, "endBal", endBal);
+  if(payoutAmt !== null && payoutAmt !== "") editCycleField(id, "payoutAmt", payoutAmt);
+  if(payoutDate !== null && payoutDate !== "") editCycleField(id, "payoutDate", payoutDate);
+
+  showToast("Cycle closed ✅");
+}
+
+/* ── Totals summary ── */
+function renderPropTotals(){
+  const box = document.getElementById("propTotals");
+  if(!box || !cycles.length) { if(box) box.innerHTML=""; return; }
+
+  const split = propSettings.profitSplit || 80;
+  const closed = cycles.filter(c => c.endBal != null);
+  const totalProfit = closed.reduce((a,c) => a + (c.endBal - c.startBal), 0);
+  const totalYourCut = closed.filter(c => c.endBal > c.startBal).reduce((a,c) => a + (c.endBal - c.startBal) * (split/100), 0);
+  const totalPaid = cycles.filter(c => c.payoutAmt != null).reduce((a,c) => a + Number(c.payoutAmt), 0);
+  const winCycles = closed.filter(c => c.endBal > c.startBal).length;
+  const avgPnl = closed.length ? (totalProfit / closed.length) : 0;
+
+  box.innerHTML = `
+    <div class="section-title" style="margin-top:4px">📈 All-time Summary</div>
+    <div class="prop-totals-card">
+      <div class="prop-total-item"><div class="stat-label">Total Cycles</div><div class="stat-value">${cycles.length} <span class="small-muted">(${closed.length} closed)</span></div></div>
+      <div class="prop-total-item"><div class="stat-label">Winning Cycles</div><div class="stat-value positive">${winCycles} / ${closed.length}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Total Gross Profit</div><div class="stat-value ${totalProfit>=0?"positive":"negative"}">${totalProfit>=0?"+":""}$${totalProfit.toFixed(2)}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Your Total Cut (${split}%)</div><div class="stat-value positive">$${totalYourCut.toFixed(2)}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Actually Paid Out</div><div class="stat-value positive">$${totalPaid.toFixed(2)}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Avg Profit / Cycle</div><div class="stat-value ${avgPnl>=0?"positive":"negative"}">${avgPnl>=0?"+":""}$${avgPnl.toFixed(2)}</div></div>
+    </div>`;
+}
+
+/* ── Rules dashboard (uses latest cycle's balances) ── */
+function renderPropDashboard(){
+  const s = propSettings;
+  const dash = document.getElementById("propRulesDashboard");
+  if(!dash) return;
+  dash.innerHTML = "";
+
+  // Use the most recent active (ongoing) cycle's data for the rules tracker
+  const todayStr = formatDateLocal(new Date());
+  const activeCycle = [...cycles].sort((a,b)=>(b.start||"").localeCompare(a.start||"")).find(c => !c.end || c.end >= todayStr);
+
+  const acct = s.accountSize || 10000;
+  const startBal = activeCycle ? activeCycle.startBal : acct;
+  const curBal   = activeCycle && activeCycle.endBal != null ? activeCycle.endBal : startBal;
+
+  // ── Daily loss: calculated from today's journal trades ──
+  const todayKey = todayStr;
+  const todayTrades = trades.filter(t => t.date === todayKey);
+  const todayNetPnl = todayTrades.reduce((a,t) => a + netPnl(t), 0);
+  const dailyLossAmt = acct * (s.dailyLossPct / 100);
+  const dailyUsed = todayNetPnl < 0 ? Math.abs(todayNetPnl) : 0;
+  const dailyPct = dailyLossAmt > 0 ? Math.min(100, (dailyUsed / dailyLossAmt) * 100) : 0;
+  const dailyStatus = dailyPct >= 90 ? "danger" : dailyPct >= 70 ? "warn" : "safe";
+
+  // ── Max drawdown ──
+  const maxDdAmt = acct * (s.maxDdPct / 100);
+  const ddUsed = Math.max(0, startBal - curBal);
+  const ddPct = maxDdAmt > 0 ? Math.min(100, (ddUsed / maxDdAmt) * 100) : 0;
+  const ddFloor = acct - maxDdAmt;
+  const ddStatus = ddPct >= 90 ? "danger" : ddPct >= 70 ? "warn" : "safe";
+
+  // ── Account growth this cycle ──
+  const cyclePnl = curBal - startBal;
+  const cyclePct = startBal > 0 ? (cyclePnl / startBal) * 100 : 0;
+  const yourCut = cyclePnl > 0 ? cyclePnl * (s.profitSplit / 100) : 0;
+
+  const cards = [
+    {
+      label:"⚠️ Daily Loss Used", value: dailyUsed > 0 ? `-$${dailyUsed.toFixed(0)}` : "$0.00",
+      sub: `Limit: $${dailyLossAmt.toFixed(0)} (${s.dailyLossPct}%) · Remaining: $${Math.max(0,dailyLossAmt-dailyUsed).toFixed(0)}`,
+      pct: dailyPct, status: dailyStatus
+    },
+    {
+      label:"📉 Drawdown Used", value: `$${ddUsed.toFixed(0)}`,
+      sub: `Max: $${maxDdAmt.toFixed(0)} (${s.maxDdPct}%) · Floor: $${ddFloor.toFixed(0)}`,
+      pct: ddPct, status: ddStatus
+    },
+    {
+      label:"💹 Cycle P&L", value: (cyclePnl >= 0 ? "+" : "") + "$" + cyclePnl.toFixed(2),
+      sub: `${cyclePct >= 0 ? "+" : ""}${cyclePct.toFixed(2)}% · Started $${startBal.toFixed(0)}`,
+      pct: Math.min(100, Math.abs(cyclePct) * 10), status: cyclePnl >= 0 ? "safe" : "danger"
+    },
+    {
+      label:"💰 Your Cut This Cycle", value: `$${yourCut.toFixed(2)}`,
+      sub: `${s.profitSplit}% of $${Math.max(0,cyclePnl).toFixed(2)} profit`,
+      pct: Math.min(100, (yourCut / (acct * 0.05)) * 100), status: yourCut > 0 ? "safe" : "neutral"
+    },
+  ];
+
+  cards.forEach(c => {
+    const div = document.createElement("div");
+    div.className = `rule-card ${c.status}`;
+    div.innerHTML = `
+      <div class="rule-label">${c.label}</div>
+      <div class="rule-value">${c.value}</div>
+      <div class="rule-sub">${c.sub}</div>
+      <div class="rule-bar-outer"><div class="rule-bar-inner" style="width:${c.pct}%"></div></div>`;
+    dash.appendChild(div);
+  });
+
+  // Violation alerts
+  const alerts = [];
+  if(dailyPct >= 100) alerts.push("🚨 DAILY LOSS LIMIT BREACHED — stop trading immediately!");
+  else if(dailyPct >= 90) alerts.push("⚠️ Daily loss 90%+ — be very careful.");
+  if(ddPct >= 100) alerts.push("🚨 MAX DRAWDOWN BREACHED — account may be locked!");
+  else if(ddPct >= 80) alerts.push("⚠️ Drawdown 80%+ — reduce size or stop for today.");
+
+  if(alerts.length){
+    const alertBox = document.createElement("div");
+    alertBox.style.cssText = "grid-column:1/-1;padding:12px 14px;border-radius:10px;background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);font-size:13px;line-height:1.7;color:#fca5a5;margin-top:4px";
+    alertBox.innerHTML = alerts.join("<br>");
+    dash.appendChild(alertBox);
+  }
+
+  // Active cycle banner
+  const banner = document.getElementById("activeCycleBanner");
+  if(banner){
+    if(activeCycle){
+      const model = PROP_MODELS[s.model] || PROP_MODELS.stellar2;
+      const nextPayoutDays = model.payoutCycle;
+      banner.style.display = "block";
+      banner.innerHTML = `<div class="active-banner">🟢 <b>Active cycle started ${activeCycle.start}</b> · Balance: <b>$${curBal.toFixed(2)}</b> · Daily loss resets at 00:00 server time · Next payout window: every <b>${nextPayoutDays} days</b> after first payout</div>`;
+    } else {
+      banner.style.display = "none";
+    }
+  }
 }
 
 /* ===== Screenshot handling (multiple) ===== */
