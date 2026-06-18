@@ -1675,12 +1675,13 @@ function renderCycleList(){
       payoutBadge = `<span class="cycle-payout-badge cycle-payout-pending">⏳ Payout pending</span>`;
     }
 
-    // progress bar (how far into cycle by days or profit)
-    const acct = propSettings.accountSize || c.startBal;
-    const maxDdAmt = acct * ((propSettings.maxDdPct||10) / 100);
-    const ddUsed = pnl != null ? Math.max(0, -pnl) : 0;
-    const ddPct = Math.min(100, (ddUsed / maxDdAmt) * 100);
-    const barColor = ddPct > 80 ? "#f85149" : ddPct > 60 ? "#f0883e" : "#3b82f6";
+    // Drawdown bar for ongoing cycles: shows how close to floor
+    const cycleFloor = (propSettings.accountSize || c.startBal) * (1 - (propSettings.maxDdPct||10) / 100);
+    const cycleCurBal = pnl != null ? c.startBal + pnl : c.startBal;
+    const cycleCushion = Math.max(0, cycleCurBal - cycleFloor);
+    const cycleMaxCushion = Math.max(0, c.startBal - cycleFloor);
+    const cycleFloorPct = cycleMaxCushion > 0 ? Math.min(100, ((cycleMaxCushion - cycleCushion) / cycleMaxCushion) * 100) : 0;
+    const barColor = cycleFloorPct > 80 ? "#f85149" : cycleFloorPct > 60 ? "#f0883e" : "#3b82f6";
 
     const div = document.createElement("div");
     div.className = `cycle-card ${cardCls}`;
@@ -1704,7 +1705,7 @@ function renderCycleList(){
           ${pnlPct != null ? `<div class="cycle-meta">${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%</div>` : ""}
         </div>
       </div>
-      ${ongoing ? `<div class="cycle-bar-outer"><div class="cycle-bar-inner" style="width:${ddPct}%;background:${barColor}"></div></div>` : ""}
+      ${ongoing ? `<div class="cycle-bar-outer"><div class="cycle-bar-inner" style="width:${cycleFloorPct}%;background:${barColor}"></div></div>` : ""}
     `;
 
     // action buttons
@@ -1814,11 +1815,35 @@ function renderPropDashboard(){
   const dailyPct = dailyLossAmt > 0 ? Math.min(100, (dailyUsed / dailyLossAmt) * 100) : 0;
   const dailyStatus = dailyPct >= 90 ? "danger" : dailyPct >= 70 ? "warn" : "safe";
 
-  // ── Max drawdown ──
-  const maxDdAmt = acct * (s.maxDdPct / 100);
-  const ddUsed = Math.max(0, startBal - curBal);
-  const ddPct = maxDdAmt > 0 ? Math.min(100, (ddUsed / maxDdAmt) * 100) : 0;
-  const ddFloor = acct - maxDdAmt;
+  // ── Max drawdown (trailing / compounding) ──
+  // FundedNext Stellar: floor is FIXED at initialBalance × (1 - maxDdPct%)
+  // But the cushion above the floor grows as balance grows (peak-based drawdown).
+  // Rule: account balance/equity must never drop below the fixed floor.
+  // "Drawdown used" = peak balance reached so far minus current balance.
+  // "Drawdown remaining" = currentBalance - floor (how much more you can lose).
+  const ddFloor = acct * (1 - s.maxDdPct / 100); // fixed floor, never changes
+
+  // Compute peak balance from journal trades within the active cycle (day-by-day running balance)
+  let peakBal = startBal;
+  if(activeCycle && activeCycle.start){
+    const cycleStart = activeCycle.start;
+    const cycleDates = Array.from(new Set(trades.filter(t => t.date >= cycleStart && t.date <= todayStr).map(t => t.date))).sort();
+    let running = startBal;
+    cycleDates.forEach(d => {
+      const dayPnl = trades.filter(t => t.date === d).reduce((a,t) => a + netPnl(t), 0);
+      running += dayPnl;
+      if(running > peakBal) peakBal = running;
+    });
+  }
+
+  // Drawdown used = peak - current (how far we've fallen from the best point)
+  const ddUsed = Math.max(0, peakBal - curBal);
+  // Total cushion available from peak = peak - floor
+  const totalCushion = Math.max(0, peakBal - ddFloor);
+  // Drawdown remaining = how much more we can lose before hitting the floor
+  const ddRemaining = Math.max(0, curBal - ddFloor);
+  // Progress bar: ddUsed / totalCushion (from peak) — shows how much of the cushion is consumed
+  const ddPct = totalCushion > 0 ? Math.min(100, (ddUsed / totalCushion) * 100) : 0;
   const ddStatus = ddPct >= 90 ? "danger" : ddPct >= 70 ? "warn" : "safe";
 
   // ── Account growth this cycle ──
@@ -1833,8 +1858,8 @@ function renderPropDashboard(){
       pct: dailyPct, status: dailyStatus
     },
     {
-      label:"📉 Drawdown Used", value: `$${ddUsed.toFixed(0)}`,
-      sub: `Max: $${maxDdAmt.toFixed(0)} (${s.maxDdPct}%) · Floor: $${ddFloor.toFixed(0)}`,
+      label:"📉 Drawdown Used", value: `$${ddUsed.toFixed(2)}`,
+      sub: `Peak: $${peakBal.toFixed(2)} · Floor: $${ddFloor.toFixed(2)} · Remaining: $${ddRemaining.toFixed(2)}`,
       pct: ddPct, status: ddStatus
     },
     {
@@ -1886,8 +1911,8 @@ function renderPropDashboard(){
       banner.style.display = "block";
       banner.innerHTML = `<div class="active-banner">🟢 <b>Active cycle started ${activeCycle.start}</b><br>
         📊 <b>${tradeCount} trade(s)</b> logged this cycle · Journal P&L: <b style="color:${cyclePnlFromJournal>=0?"var(--green)":"var(--red)"}">${cyclePnlFromJournal>=0?"+":""}$${cyclePnlFromJournal.toFixed(2)}</b><br>
-        Est. current balance: <b>$${curBal.toFixed(2)}</b> · Next payout window: every <b>${model.payoutCycle} days</b> after first payout<br>
-        <span style="font-size:11px;opacity:0.7">💡 Tip: close the cycle when FundedNext ends your trading period to log the final balance &amp; payout</span></div>`;
+        Est. balance: <b>$${curBal.toFixed(2)}</b> · Peak: <b>$${peakBal.toFixed(2)}</b> · DD Floor: <b>$${ddFloor.toFixed(2)}</b> · Cushion left: <b style="color:${ddRemaining < acct*0.02?"var(--red)":"var(--green)"}">$${ddRemaining.toFixed(2)}</b><br>
+        <span style="font-size:11px;opacity:0.7">💡 Close the cycle when FundedNext ends your trading period to lock in the final balance &amp; payout</span></div>`;
     } else {
       banner.style.display = "none";
     }
