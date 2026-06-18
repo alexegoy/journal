@@ -1641,13 +1641,28 @@ function renderCycleList(){
   sorted.forEach((c, idx) => {
     const num = sorted.length - idx;
     const ongoing = !c.end || c.end >= todayStr;
-    const pnl = c.endBal != null ? c.endBal - c.startBal : null;
+    // For ongoing cycles, compute P&L from journal trades within cycle date range
+    let pnl;
+    if(c.endBal != null){
+      pnl = c.endBal - c.startBal;
+    } else if(ongoing && c.start){
+      const ct = trades.filter(t => t.date >= c.start && t.date <= todayStr);
+      pnl = ct.reduce((a,t) => a + netPnl(t), 0);
+    } else {
+      pnl = null;
+    }
     const pnlPct = pnl != null && c.startBal > 0 ? (pnl / c.startBal) * 100 : null;
     const yourCut = pnl != null && pnl > 0 ? pnl * (split / 100) : 0;
 
     let cardCls = ongoing ? "ongoing-cycle" : (pnl > 0 ? "profit-cycle" : pnl < 0 ? "loss-cycle" : "");
     let pnlCls  = ongoing ? "ongoing" : (pnl > 0 ? "positive" : pnl < 0 ? "negative" : "");
-    let pnlText = ongoing ? "Ongoing" : (pnl != null ? (pnl >= 0 ? "+" : "") + "$" + pnl.toFixed(2) : "—");
+    let pnlText = pnl != null ? (pnl >= 0 ? "+" : "") + "$" + pnl.toFixed(2) : "—";
+    if(ongoing) pnlCls = pnl != null ? (pnl >= 0 ? "positive" : "negative") : "ongoing";
+
+    // trade count for ongoing cycles
+    const cycleTradeCount = ongoing && c.start
+      ? trades.filter(t => t.date >= c.start && t.date <= todayStr).length
+      : null;
 
     // days in cycle
     const daysInCycle = c.start && c.end ? Math.round((new Date(c.end+"T00:00:00") - new Date(c.start+"T00:00:00")) / 86400000) + 1 : null;
@@ -1678,6 +1693,7 @@ function renderCycleList(){
             Start: $${Number(c.startBal).toFixed(2)}
             ${c.endBal != null ? " · End: $" + Number(c.endBal).toFixed(2) : ""}
             ${daysInCycle ? " · " + daysInCycle + " days" : ""}
+            ${cycleTradeCount !== null ? ` · <b>${cycleTradeCount} trades</b> in journal` : ""}
             ${yourCut > 0 ? " · Your cut: <b style='color:var(--green)'>$" + yourCut.toFixed(2) + "</b>" : ""}
           </div>
           ${payoutBadge}
@@ -1774,7 +1790,20 @@ function renderPropDashboard(){
 
   const acct = s.accountSize || 10000;
   const startBal = activeCycle ? activeCycle.startBal : acct;
-  const curBal   = activeCycle && activeCycle.endBal != null ? activeCycle.endBal : startBal;
+
+  // For ongoing cycles, compute current balance from journal trades within the cycle
+  let curBal;
+  if(activeCycle && activeCycle.endBal != null){
+    curBal = activeCycle.endBal;
+  } else if(activeCycle && activeCycle.start){
+    // sum all journal trades from cycle start to today
+    const cycleStart = activeCycle.start;
+    const cycleTrades = trades.filter(t => t.date >= cycleStart && t.date <= todayStr);
+    const cyclePnlFromJournal = cycleTrades.reduce((a,t) => a + netPnl(t), 0);
+    curBal = startBal + cyclePnlFromJournal;
+  } else {
+    curBal = startBal;
+  }
 
   // ── Daily loss: calculated from today's journal trades ──
   const todayKey = todayStr;
@@ -1850,9 +1879,15 @@ function renderPropDashboard(){
   if(banner){
     if(activeCycle){
       const model = PROP_MODELS[s.model] || PROP_MODELS.stellar2;
-      const nextPayoutDays = model.payoutCycle;
+      const cycleStart = activeCycle.start;
+      const cycleTrades = trades.filter(t => t.date >= cycleStart && t.date <= todayStr);
+      const cyclePnlFromJournal = cycleTrades.reduce((a,t) => a + netPnl(t), 0);
+      const tradeCount = cycleTrades.length;
       banner.style.display = "block";
-      banner.innerHTML = `<div class="active-banner">🟢 <b>Active cycle started ${activeCycle.start}</b> · Balance: <b>$${curBal.toFixed(2)}</b> · Daily loss resets at 00:00 server time · Next payout window: every <b>${nextPayoutDays} days</b> after first payout</div>`;
+      banner.innerHTML = `<div class="active-banner">🟢 <b>Active cycle started ${activeCycle.start}</b><br>
+        📊 <b>${tradeCount} trade(s)</b> logged this cycle · Journal P&L: <b style="color:${cyclePnlFromJournal>=0?"var(--green)":"var(--red)"}">${cyclePnlFromJournal>=0?"+":""}$${cyclePnlFromJournal.toFixed(2)}</b><br>
+        Est. current balance: <b>$${curBal.toFixed(2)}</b> · Next payout window: every <b>${model.payoutCycle} days</b> after first payout<br>
+        <span style="font-size:11px;opacity:0.7">💡 Tip: close the cycle when FundedNext ends your trading period to log the final balance &amp; payout</span></div>`;
     } else {
       banner.style.display = "none";
     }
