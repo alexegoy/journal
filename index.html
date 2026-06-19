@@ -487,12 +487,54 @@
     .payout-your-cut { font-size: 11px; color: var(--muted); margin-top: 2px; }
     @media (max-width: 480px) { .prop-rules-grid { grid-template-columns: repeat(2, 1fr); } }
 
+    /* Hero status card */
+    .prop-hero {
+      background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.08));
+      border: 1px solid rgba(59,130,246,0.25);
+      border-radius: var(--radius); padding: 20px;
+      margin-bottom: 14px; backdrop-filter: blur(16px);
+      position: relative; overflow: hidden;
+    }
+    .prop-hero::before {
+      content: ''; position: absolute; top: -40%; right: -10%; width: 220px; height: 220px;
+      background: radial-gradient(circle, rgba(59,130,246,0.25), transparent 70%);
+      pointer-events: none;
+    }
+    .prop-hero-top { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; position: relative; z-index: 1; }
+    .prop-hero-label { font-size: 11px; font-weight: 600; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 4px; }
+    .prop-hero-balance { font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+    .prop-hero-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .prop-hero-badge { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 5px 12px; font-size: 11px; font-weight: 600; }
+    .prop-hero-meter { margin-top: 16px; position: relative; z-index: 1; }
+    .prop-hero-meter-track { height: 8px; border-radius: 99px; background: rgba(255,255,255,0.08); position: relative; overflow: visible; }
+    .prop-hero-meter-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #f85149, #f0883e, #3fb950); position: relative; }
+    .prop-hero-meter-dot { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid #3b82f6; transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(59,130,246,0.6); }
+    .prop-hero-meter-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 6px; }
+    .prop-hero-stats { display: flex; gap: 18px; margin-top: 14px; flex-wrap: wrap; position: relative; z-index: 1; }
+    .prop-hero-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .prop-hero-stat-value { font-size: 14px; font-weight: 700; margin-top: 2px; }
+
+    /* Collapsible sections */
+    .chevron { font-size: 12px; color: var(--muted); transition: transform 0.2s; }
+    .chevron.open { transform: rotate(180deg); }
+    #propSetupSummary { font-weight: 400; }
+
+    /* Rule cards refined */
+    .rule-card { display: flex; flex-direction: column; }
+    .rule-icon-badge { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; margin-bottom: 8px; }
+    .rule-card.safe .rule-icon-badge { background: rgba(63,185,80,0.15); }
+    .rule-card.warn .rule-icon-badge { background: rgba(240,136,62,0.15); }
+    .rule-card.danger .rule-icon-badge { background: rgba(248,81,73,0.15); }
+    .rule-card.neutral .rule-icon-badge { background: rgba(59,130,246,0.15); }
+
     /* Cycle cards */
     .cycle-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; margin-bottom:10px; }
     .cycle-card.active-cycle { border-color:rgba(59,130,246,0.5); box-shadow:0 0 18px rgba(59,130,246,0.1); }
     .cycle-card.profit-cycle { border-left:3px solid var(--green); }
     .cycle-card.loss-cycle { border-left:3px solid var(--red); }
     .cycle-card.ongoing-cycle { border-left:3px solid var(--accent); }
+    .live-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#3fb950; margin-right:4px; box-shadow:0 0 0 0 rgba(63,185,80,0.6); animation: pulse-dot 1.6s infinite; }
+    @keyframes pulse-dot { 0% { box-shadow: 0 0 0 0 rgba(63,185,80,0.5); } 70% { box-shadow: 0 0 0 6px rgba(63,185,80,0); } 100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); } }
     .cycle-header { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
     .cycle-num { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
     .cycle-dates { font-size:13px; font-weight:600; }
@@ -585,49 +627,55 @@
   <!-- Prop Firm tab -->
   <div id="propTab" style="display:none">
 
-    <!-- Account Setup (one-time, compact) -->
+    <!-- Hero status card -->
+    <div id="propHero" class="prop-hero" style="display:none"></div>
+
+    <!-- Account Setup (collapsible) -->
     <div class="prop-card" id="propSetupCard">
-      <div class="prop-card-header">
-        <span>⚙️ Account Setup</span>
-        <button class="btn btn-primary" onclick="savePropSettings()">Save</button>
+      <div class="prop-card-header" id="propSetupToggle" onclick="togglePropSetup()" style="cursor:pointer">
+        <span>⚙️ Account Setup <span id="propSetupSummary" class="small-muted" style="font-weight:400"></span></span>
+        <span id="propSetupChevron" class="chevron">▾</span>
       </div>
-      <div class="field-row">
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Model</label>
-          <select id="propModel" onchange="onPropModelChange()">
-            <option value="stellar2">Stellar 2-Step</option>
-            <option value="stellar1">Stellar 1-Step</option>
-            <option value="stellarlite">Stellar Lite</option>
-          </select>
+      <div id="propSetupBody">
+        <div class="field-row">
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Model</label>
+            <select id="propModel" onchange="onPropModelChange()">
+              <option value="stellar2">Stellar 2-Step</option>
+              <option value="stellar1">Stellar 1-Step</option>
+              <option value="stellarlite">Stellar Lite</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Phase</label>
+            <select id="propPhase">
+              <option value="phase1">Phase 1</option>
+              <option value="phase2">Phase 2</option>
+              <option value="funded">Funded ✅</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Account Size ($)</label>
+            <input id="propAccountSize" type="number" placeholder="e.g. 10000" step="0.01" />
+          </div>
         </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Phase</label>
-          <select id="propPhase" onchange="savePropSettings()">
-            <option value="phase1">Phase 1</option>
-            <option value="phase2">Phase 2</option>
-            <option value="funded">Funded ✅</option>
-          </select>
+        <div class="field-row" style="margin-top:10px">
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Daily Loss Limit (%)</label>
+            <input id="propDailyLossPct" type="number" placeholder="5" step="0.1" />
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Max Drawdown (%)</label>
+            <input id="propMaxDdPct" type="number" placeholder="10" step="0.1" />
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Profit Split (%)</label>
+            <input id="propProfitSplit" type="number" placeholder="80" step="1" />
+          </div>
         </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Account Size ($)</label>
-          <input id="propAccountSize" type="number" placeholder="e.g. 10000" step="0.01" />
-        </div>
+        <p class="comm-hint" style="margin-top:6px">Rules auto-fill when you pick a model. Edit freely if your account differs.</p>
+        <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="savePropSettings()">💾 Save Settings</button>
       </div>
-      <div class="field-row" style="margin-top:10px">
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Daily Loss Limit (%)</label>
-          <input id="propDailyLossPct" type="number" placeholder="5" step="0.1" />
-        </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Max Drawdown (%)</label>
-          <input id="propMaxDdPct" type="number" placeholder="10" step="0.1" />
-        </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Profit Split (%)</label>
-          <input id="propProfitSplit" type="number" placeholder="80" step="1" />
-        </div>
-      </div>
-      <p class="comm-hint" style="margin-top:6px">Rules auto-fill when you pick a model. Edit freely if your account differs.</p>
     </div>
 
     <!-- Rules dashboard (live) -->
@@ -639,42 +687,46 @@
 
     <!-- Trading Cycles -->
     <div class="section-title" style="margin-top:16px">🔄 Trading Cycles</div>
+
     <div class="prop-card">
-      <div class="prop-card-header">
-        <span>New Cycle</span>
-        <button class="btn btn-primary" onclick="addCycle()">+ Add Cycle</button>
+      <div class="prop-card-header" id="newCycleToggle" onclick="toggleNewCycleForm()" style="cursor:pointer">
+        <span>➕ Log a Trading Cycle</span>
+        <span id="newCycleChevron" class="chevron">▾</span>
       </div>
-      <div class="field-row">
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Cycle Start</label>
-          <input id="cycleStart" type="date" />
+      <div id="newCycleBody" style="display:none">
+        <div class="field-row">
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Cycle Start</label>
+            <input id="cycleStart" type="date" />
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Cycle End <span class="small-muted">if known</span></label>
+            <input id="cycleEnd" type="date" />
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Starting Balance ($)</label>
+            <input id="cycleStartBal" type="number" placeholder="e.g. 10000" step="0.01" />
+          </div>
         </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Cycle End</label>
-          <input id="cycleEnd" type="date" />
+        <div class="field-row" style="margin-top:10px">
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Closing Balance ($) <span class="small-muted">if ended</span></label>
+            <input id="cycleEndBal" type="number" placeholder="e.g. 10540" step="0.01" />
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Payout Date <span class="small-muted">(optional)</span></label>
+            <input id="cyclePayoutDate" type="date" />
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Payout Amount ($) <span class="small-muted">(optional)</span></label>
+            <input id="cyclePayoutAmt" type="number" placeholder="e.g. 432" step="0.01" />
+          </div>
         </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Starting Balance ($)</label>
-          <input id="cycleStartBal" type="number" placeholder="e.g. 10000" step="0.01" />
+        <div class="field-group" style="margin-top:10px">
+          <label class="field-label">Notes</label>
+          <input id="cycleNotes" type="text" placeholder="e.g. Good consistency, avoided overtrading" />
         </div>
-      </div>
-      <div class="field-row" style="margin-top:10px">
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Closing Balance ($) <span class="small-muted">leave blank if ongoing</span></label>
-          <input id="cycleEndBal" type="number" placeholder="e.g. 10540" step="0.01" />
-        </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Payout Date <span class="small-muted">(optional)</span></label>
-          <input id="cyclePayoutDate" type="date" />
-        </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Payout Amount ($) <span class="small-muted">(optional)</span></label>
-          <input id="cyclePayoutAmt" type="number" placeholder="e.g. 432" step="0.01" />
-        </div>
-      </div>
-      <div class="field-group" style="margin-top:10px">
-        <label class="field-label">Notes</label>
-        <input id="cycleNotes" type="text" placeholder="e.g. Good consistency, avoided overtrading" />
+        <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="addCycle()">+ Add Cycle</button>
       </div>
     </div>
 
@@ -873,7 +925,15 @@ function switchTab(name){
   document.getElementById("tabCharts").classList.toggle("active",name==="charts");
   document.getElementById("tabProp").classList.toggle("active",name==="prop");
   if(name==="charts")renderCharts();
-  if(name==="prop"){ loadPropSettingsToForm(); renderPropDashboard(); renderCycleList(); }
+  if(name==="prop"){
+    loadPropSettingsToForm();
+    updatePropSetupSummary();
+    // collapse setup if account size already configured (returning user), expand if first time
+    togglePropSetup(!propSettings.accountSize);
+    toggleNewCycleForm(false);
+    renderPropDashboard();
+    renderCycleList();
+  }
 }
 
 /* ===== Calendar ===== */
@@ -1548,6 +1608,89 @@ let propSettings = JSON.parse(localStorage.getItem("propSettings") || "null") ||
 };
 let cycles = JSON.parse(localStorage.getItem("cycles") || "[]");
 
+/* ── Collapsible UI ── */
+function togglePropSetup(force){
+  const body = document.getElementById("propSetupBody");
+  const chev = document.getElementById("propSetupChevron");
+  const isOpen = body.style.display !== "none";
+  const shouldOpen = force !== undefined ? force : !isOpen;
+  body.style.display = shouldOpen ? "block" : "none";
+  chev.classList.toggle("open", shouldOpen);
+}
+
+function toggleNewCycleForm(force){
+  const body = document.getElementById("newCycleBody");
+  const chev = document.getElementById("newCycleChevron");
+  const isOpen = body.style.display !== "none";
+  const shouldOpen = force !== undefined ? force : !isOpen;
+  body.style.display = shouldOpen ? "block" : "none";
+  chev.classList.toggle("open", shouldOpen);
+  if(shouldOpen){
+    const cs = document.getElementById("cycleStart");
+    if(cs && !cs.value) cs.value = formatDateLocal(new Date());
+  }
+}
+
+function updatePropSetupSummary(){
+  const s = propSettings;
+  const summaryEl = document.getElementById("propSetupSummary");
+  if(!summaryEl) return;
+  const model = PROP_MODELS[s.model] || PROP_MODELS.stellar2;
+  const phaseLabel = s.phase === "funded" ? "Funded" : s.phase === "phase2" ? "Phase 2" : "Phase 1";
+  summaryEl.textContent = s.accountSize
+    ? `· ${model.label} · $${Number(s.accountSize).toLocaleString()} · ${phaseLabel}`
+    : "";
+}
+
+/* ── Hero card ── */
+function renderPropHero(curBal, peakBal, ddFloor, ddRemaining, startBal, activeCycle){
+  const hero = document.getElementById("propHero");
+  if(!hero) return;
+
+  if(!activeCycle){
+    hero.style.display = "none";
+    return;
+  }
+  hero.style.display = "block";
+
+  const s = propSettings;
+  const model = PROP_MODELS[s.model] || PROP_MODELS.stellar2;
+  const phaseLabel = s.phase === "funded" ? "🏆 Funded Account" : s.phase === "phase2" ? "Phase 2 Challenge" : "Phase 1 Challenge";
+
+  const totalRange = Math.max(1, peakBal - ddFloor);
+  const posPct = Math.min(100, Math.max(0, ((curBal - ddFloor) / totalRange) * 100));
+
+  const cyclePnl = curBal - startBal;
+  const cyclePct = startBal > 0 ? (cyclePnl / startBal) * 100 : 0;
+
+  hero.innerHTML = `
+    <div class="prop-hero-top">
+      <div>
+        <div class="prop-hero-label">${model.label} · Live Balance</div>
+        <div class="prop-hero-balance">$${curBal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <div class="prop-hero-sub">${cyclePnl>=0?"+":""}$${cyclePnl.toFixed(2)} (${cyclePct>=0?"+":""}${cyclePct.toFixed(2)}%) this cycle</div>
+      </div>
+      <div class="prop-hero-badge">${phaseLabel}</div>
+    </div>
+    <div class="prop-hero-meter">
+      <div class="prop-hero-meter-track">
+        <div class="prop-hero-meter-fill" style="width:100%">
+          <div class="prop-hero-meter-dot" style="left:${posPct}%"></div>
+        </div>
+      </div>
+      <div class="prop-hero-meter-labels">
+        <span>🚫 Floor $${ddFloor.toFixed(0)}</span>
+        <span>📈 Peak $${peakBal.toFixed(0)}</span>
+      </div>
+    </div>
+    <div class="prop-hero-stats">
+      <div><div class="prop-hero-stat-label">Cushion Left</div><div class="prop-hero-stat-value" style="color:${ddRemaining < (s.accountSize||10000)*0.02 ? 'var(--red)':'var(--green)'}">$${ddRemaining.toFixed(2)}</div></div>
+      <div><div class="prop-hero-stat-label">Started</div><div class="prop-hero-stat-value">$${startBal.toFixed(2)}</div></div>
+      <div><div class="prop-hero-stat-label">Cycle Start</div><div class="prop-hero-stat-value">${activeCycle.start}</div></div>
+    </div>
+  `;
+}
+
 /* ── Setup ── */
 function onPropModelChange(){
   const r = PROP_MODELS[document.getElementById("propModel").value];
@@ -1578,6 +1721,8 @@ function savePropSettings(){
   };
   localStorage.setItem("propSettings", JSON.stringify(propSettings));
   renderPropDashboard();
+  updatePropSetupSummary();
+  togglePropSetup(false);
   showToast("Settings saved ✅");
 }
 
@@ -1603,6 +1748,7 @@ function addCycle(){
 
   renderCycleList();
   renderPropDashboard();
+  toggleNewCycleForm(false);
   showToast("Cycle added ✅");
 }
 
@@ -1688,7 +1834,7 @@ function renderCycleList(){
     div.innerHTML = `
       <div class="cycle-header">
         <div>
-          <div class="cycle-num">Cycle #${num}${ongoing ? " · 🟢 Active" : ""}</div>
+          <div class="cycle-num">Cycle #${num}${ongoing ? ' · <span class="live-dot"></span>Active' : ""}</div>
           <div class="cycle-dates">${c.start} ${c.end ? "→ " + c.end : "→ present"}</div>
           <div class="cycle-meta">
             Start: $${Number(c.startBal).toFixed(2)}
@@ -1853,22 +1999,22 @@ function renderPropDashboard(){
 
   const cards = [
     {
-      label:"⚠️ Daily Loss Used", value: dailyUsed > 0 ? `-$${dailyUsed.toFixed(0)}` : "$0.00",
+      icon:"⚠️", label:"Daily Loss Used", value: dailyUsed > 0 ? `-$${dailyUsed.toFixed(0)}` : "$0.00",
       sub: `Limit: $${dailyLossAmt.toFixed(0)} (${s.dailyLossPct}%) · Remaining: $${Math.max(0,dailyLossAmt-dailyUsed).toFixed(0)}`,
       pct: dailyPct, status: dailyStatus
     },
     {
-      label:"📉 Drawdown Used", value: `$${ddUsed.toFixed(2)}`,
+      icon:"📉", label:"Drawdown Used", value: `$${ddUsed.toFixed(2)}`,
       sub: `Peak: $${peakBal.toFixed(2)} · Floor: $${ddFloor.toFixed(2)} · Remaining: $${ddRemaining.toFixed(2)}`,
       pct: ddPct, status: ddStatus
     },
     {
-      label:"💹 Cycle P&L", value: (cyclePnl >= 0 ? "+" : "") + "$" + cyclePnl.toFixed(2),
+      icon:"💹", label:"Cycle P&L", value: (cyclePnl >= 0 ? "+" : "") + "$" + cyclePnl.toFixed(2),
       sub: `${cyclePct >= 0 ? "+" : ""}${cyclePct.toFixed(2)}% · Started $${startBal.toFixed(0)}`,
       pct: Math.min(100, Math.abs(cyclePct) * 10), status: cyclePnl >= 0 ? "safe" : "danger"
     },
     {
-      label:"💰 Your Cut This Cycle", value: `$${yourCut.toFixed(2)}`,
+      icon:"💰", label:"Your Cut This Cycle", value: `$${yourCut.toFixed(2)}`,
       sub: `${s.profitSplit}% of $${Math.max(0,cyclePnl).toFixed(2)} profit`,
       pct: Math.min(100, (yourCut / (acct * 0.05)) * 100), status: yourCut > 0 ? "safe" : "neutral"
     },
@@ -1878,6 +2024,7 @@ function renderPropDashboard(){
     const div = document.createElement("div");
     div.className = `rule-card ${c.status}`;
     div.innerHTML = `
+      <div class="rule-icon-badge">${c.icon}</div>
       <div class="rule-label">${c.label}</div>
       <div class="rule-value">${c.value}</div>
       <div class="rule-sub">${c.sub}</div>
@@ -1899,20 +2046,18 @@ function renderPropDashboard(){
     dash.appendChild(alertBox);
   }
 
-  // Active cycle banner
+  // Hero card (balance / floor / peak / cushion)
+  renderPropHero(curBal, peakBal, ddFloor, ddRemaining, startBal, activeCycle);
+
+  // Active cycle banner — now just trade count + tip (hero card covers the numbers)
   const banner = document.getElementById("activeCycleBanner");
   if(banner){
     if(activeCycle){
-      const model = PROP_MODELS[s.model] || PROP_MODELS.stellar2;
       const cycleStart = activeCycle.start;
       const cycleTrades = trades.filter(t => t.date >= cycleStart && t.date <= todayStr);
-      const cyclePnlFromJournal = cycleTrades.reduce((a,t) => a + netPnl(t), 0);
       const tradeCount = cycleTrades.length;
       banner.style.display = "block";
-      banner.innerHTML = `<div class="active-banner">🟢 <b>Active cycle started ${activeCycle.start}</b><br>
-        📊 <b>${tradeCount} trade(s)</b> logged this cycle · Journal P&L: <b style="color:${cyclePnlFromJournal>=0?"var(--green)":"var(--red)"}">${cyclePnlFromJournal>=0?"+":""}$${cyclePnlFromJournal.toFixed(2)}</b><br>
-        Est. balance: <b>$${curBal.toFixed(2)}</b> · Peak: <b>$${peakBal.toFixed(2)}</b> · DD Floor: <b>$${ddFloor.toFixed(2)}</b> · Cushion left: <b style="color:${ddRemaining < acct*0.02?"var(--red)":"var(--green)"}">$${ddRemaining.toFixed(2)}</b><br>
-        <span style="font-size:11px;opacity:0.7">💡 Close the cycle when FundedNext ends your trading period to lock in the final balance &amp; payout</span></div>`;
+      banner.innerHTML = `<div class="active-banner">📊 <b>${tradeCount} trade(s)</b> logged in this cycle from your journal &nbsp;·&nbsp; <span style="opacity:0.75">💡 Close the cycle once FundedNext ends your trading period to lock in the final balance &amp; payout</span></div>`;
     } else {
       banner.style.display = "none";
     }
