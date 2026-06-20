@@ -1451,7 +1451,16 @@ function prevMonth(){currentMonth--;if(currentMonth<0){currentMonth=11;currentYe
 function nextMonth(){currentMonth++;if(currentMonth>11){currentMonth=0;currentYear++;}renderCalendar();}
 
 /* ===== Gemini ===== */
-const GEMINI_API_KEY="AIzaSyAOxXQetv8Dz4wcXBRXrE1JrwEmWnIU3bk";
+// API key: stored in localStorage so it can be updated without editing code.
+// Falls back to the bundled key if none is set.
+const GEMINI_DEFAULT_KEY="AIzaSyAOxXQetv8Dz4wcXBRXrE1JrwEmWnIU3bk";
+function getGeminiKey(){ return localStorage.getItem("geminiApiKey") || GEMINI_DEFAULT_KEY; }
+function setGeminiKey(k){ localStorage.setItem("geminiApiKey", k); showToast("Gemini API key saved"); }
+// Current free-tier model as of mid-2026. If this starts failing again, Google has likely
+// renamed/retired it — check https://ai.google.dev/gemini-api/docs/pricing for the current
+// free-tier model name and update GEMINI_MODEL below.
+const GEMINI_MODEL = "gemini-2.5-flash-lite";
+
 function escapeHtml(text){if(!text)return"";return text.replace(/[&<>"']/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function formatDate(d){if(!d)return"";if(typeof d==="string")return d;return d.toISOString().split("T")[0];}
 function getWeeklyTrades(s,e){
@@ -1476,7 +1485,7 @@ function localWeeklyReport(wt,weekKey){
   if(rate>70)sug="Great week! Keep managing risk well.";
   else if(rate<40)sug="Review losing trades and tighten risk.";
   else if(pnl<0)sug="Loss week -- reduce size, avoid revenge trades.";
-  return{html:`<b>Local Weekly Report:</b><br>Trades: ${wt.length} (${wins}W / ${losses}L)<br>Net PnL: ${pnl>=0?"+":""}${pnl.toFixed(2)}<br>Commission paid: -${comm.toFixed(2)}<br>ROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}<br>Win Rate: ${rate}%<br>Top Symbol: ${escapeHtml(top)}<br>Tip: ${escapeHtml(sug)}`};
+  return{html:`<b>📋 Local Weekly Report:</b><br>Trades: ${wt.length} (${wins}W / ${losses}L)<br>Net PnL: ${pnl>=0?"+":""}${pnl.toFixed(2)}<br>Commission paid: -${comm.toFixed(2)}<br>ROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}<br>Win Rate: ${rate}%<br>Top Symbol: ${escapeHtml(top)}<br>Tip: ${escapeHtml(sug)}`};
 }
 function localGoalAnalysis(wt,weekKey){
   const pnl=wt.reduce((a,t)=>a+netPnl(t),0);
@@ -1487,7 +1496,7 @@ function localGoalAnalysis(wt,weekKey){
   let status="No goal set.";
   if(goal>0){if(pnl>=goal)status=`Goal achieved: +${pnl.toFixed(2)} vs ${goal.toFixed(2)}.`;else if(pnl>0)status=`Partial: +${pnl.toFixed(2)} of ${goal.toFixed(2)}.`;else status=`Below target: ${pnl.toFixed(2)} vs ${goal.toFixed(2)}.`;}
   const adv=goal>0?(pnl>=goal?"Avoid overtrading. Protect gains.":"Focus on higher-prob setups, review losses."):"Set a weekly goal to track progress.";
-  return{html:`<b>Local Goal Analysis:</b><br>Net PnL: ${pnl>=0?"+":""}${pnl.toFixed(2)}<br>Commission paid: -${comm.toFixed(2)}<br>Goal: ${goal>0?goal.toFixed(2):"N/A"}<br>Status: ${escapeHtml(status)}<br>ROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}<br>Advice: ${escapeHtml(adv)}`};
+  return{html:`<b>📋 Local Goal Analysis:</b><br>Net PnL: ${pnl>=0?"+":""}${pnl.toFixed(2)}<br>Commission paid: -${comm.toFixed(2)}<br>Goal: ${goal>0?goal.toFixed(2):"N/A"}<br>Status: ${escapeHtml(status)}<br>ROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}<br>Advice: ${escapeHtml(adv)}`};
 }
 
 function extractTextFromGeminiResponse(data){
@@ -1495,6 +1504,60 @@ function extractTextFromGeminiResponse(data){
   try{if(data.candidates&&data.candidates[0]){const cont=data.candidates[0].content;if(Array.isArray(cont)){let t=cont.map(b=>{if(b.parts&&Array.isArray(b.parts))return b.parts.map(p=>p.text||"").join("");if(b.text)return b.text;return"";}).join("\n\n");if(t&&t.trim())return t;}else if(cont&&cont.parts&&cont.parts[0]&&cont.parts[0].text)return cont.parts[0].text;}}catch(e){}
   function fs(o){if(!o)return null;if(typeof o==="string")return o;if(Array.isArray(o)){for(const i of o){const s=fs(i);if(s)return s;}}else if(typeof o==="object"){for(const k in o){const s=fs(o[k]);if(s)return s;}}return null;}
   return fs(data)||"";
+}
+
+// Maps a failed fetch/response into a clear, actionable message instead of
+// silently falling back with no explanation.
+function describeGeminiError(status, errBody){
+  const msg = errBody && errBody.error && errBody.error.message ? errBody.error.message : "";
+  if(status === 400) return `Bad request (400)${msg ? ": " + msg : ""}. The model name may be outdated — check ai.google.dev/gemini-api/docs/pricing for the current free model name.`;
+  if(status === 403) return `Invalid API key (403)${msg ? ": " + msg : ""}. Generate a fresh key at aistudio.google.com/apikey and paste it in the field below.`;
+  if(status === 404) return `Model not found (404)${msg ? ": " + msg : ""}. Google likely renamed/retired this model — check the current free-tier model name.`;
+  if(status === 429) return `Rate limit hit (429)${msg ? ": " + msg : ""}. Google cut free-tier quotas significantly in Dec 2025 — wait a minute and try again, or use your own API key.`;
+  if(status >= 500) return `Google server error (${status})${msg ? ": " + msg : ""}. Try again in a bit.`;
+  return `Request failed (${status})${msg ? ": " + msg : ""}.`;
+}
+
+async function callGemini(prompt){
+  const key = getGeminiKey();
+  if(!key) return { ok:false, error:"No API key set. Add one in the field below the report." };
+  const ep = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+  const body = { contents:[{ role:"user", parts:[{ text: prompt }] }] };
+  let resp;
+  try{
+    resp = await fetch(ep, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+  } catch(networkErr){
+    return { ok:false, error:`Network error: ${networkErr.message || networkErr}. Check your internet connection.` };
+  }
+  let data;
+  try{ data = await resp.json(); } catch(e){ data = null; }
+  if(!resp.ok){
+    return { ok:false, error: describeGeminiError(resp.status, data) };
+  }
+  const text = extractTextFromGeminiResponse(data);
+  if(!text || !text.trim()){
+    return { ok:false, error:"Gemini returned an empty response (possibly blocked by safety filters)." };
+  }
+  return { ok:true, text };
+}
+
+function renderGeminiErrorBanner(errMsg, fallbackHtml){
+  const box = document.getElementById("aiWeeklyReport");
+  box.innerHTML = `
+    <div style="background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);border-radius:10px;padding:12px 14px;margin-bottom:12px;color:#fca5a5;font-size:13px;line-height:1.6">
+      ⚠️ <b>Gemini request failed</b><br>${escapeHtml(errMsg)}
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input id="geminiKeyInput" type="text" placeholder="Paste your own Gemini API key (optional)" style="flex:1;font-size:12px" />
+      <button class="btn btn-primary" onclick="saveGeminiKeyFromInput()">Save Key</button>
+    </div>
+    ${fallbackHtml}`;
+}
+
+function saveGeminiKeyFromInput(){
+  const v = document.getElementById("geminiKeyInput").value.trim();
+  if(!v){ showToast("Enter a key first"); return; }
+  setGeminiKey(v);
 }
 
 async function generateGeminiWeeklyReport(ws,we,ss,wk){
@@ -1509,17 +1572,18 @@ async function generateGeminiWeeklyReport(ws,we,ss,wk){
   const rate=(wins+losses)?Math.round(wins/(wins+losses)*100):0;
   const cap=Number(weeklyCapital[wk]||0);
   const roi=cap>0?(pnl/cap)*100:null;
-  if(!GEMINI_API_KEY){const l=localWeeklyReport(wt,wk);document.getElementById("aiWeeklyReport").innerHTML=l.html;showToast("Local report shown");return;}
-  const ep=`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const body={contents:[{role:"user",parts:[{text:`You are a concise trading analyst.\n\nWeekly Summary:\nNet P&L: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nCommission paid: -${comm.toFixed(2)}\nStarting Capital: ${cap||"N/A"}\nROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}\nWin Rate: ${rate}%\n\nTrades:\n${JSON.stringify(wt,null,2)}\n\nWrite a short professional report (3-5 paragraphs): key insights, strengths, weaknesses, commission impact on net result, and 3 quick action items.`}]}]};
-  try{
-    const resp=await fetch(ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    const data=await resp.json();
-    let out=extractTextFromGeminiResponse(data);
-    if(!out||!out.trim()){const l=localWeeklyReport(wt,wk);out=l.html.replace(/<br>/g,"\n");}
-    document.getElementById("aiWeeklyReport").innerHTML=escapeHtml(out).replace(/\n/g,"<br>");
-    showToast("Gemini report displayed");
-  }catch(err){const l=localWeeklyReport(wt,wk);document.getElementById("aiWeeklyReport").innerHTML=l.html;alert("Gemini error: "+(err.message||err)+"\n\nShowing local report.");}
+
+  const prompt = `You are a concise trading analyst.\n\nWeekly Summary:\nNet P&L: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nCommission paid: -${comm.toFixed(2)}\nStarting Capital: ${cap||"N/A"}\nROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}\nWin Rate: ${rate}%\n\nTrades:\n${JSON.stringify(wt,null,2)}\n\nWrite a short professional report (3-5 paragraphs): key insights, strengths, weaknesses, commission impact on net result, and 3 quick action items.`;
+
+  const result = await callGemini(prompt);
+  if(result.ok){
+    document.getElementById("aiWeeklyReport").innerHTML = escapeHtml(result.text).replace(/\n/g,"<br>");
+    showToast("Gemini report displayed ✅");
+  } else {
+    const l = localWeeklyReport(wt,wk);
+    renderGeminiErrorBanner(result.error, l.html);
+    showToast("Gemini failed — showing local report");
+  }
 }
 
 async function generateGeminiGoalAnalysis(ws,we,ss,wk){
@@ -1532,17 +1596,18 @@ async function generateGeminiGoalAnalysis(ws,we,ss,wk){
   const goal=Number(weeklyGoals[wk]||0);
   const cap=Number(weeklyCapital[wk]||0);
   const roi=cap>0?(pnl/cap)*100:null;
-  if(!GEMINI_API_KEY){const l=localGoalAnalysis(wt,wk);document.getElementById("aiWeeklyReport").innerHTML=l.html;showToast("Local analysis shown");return;}
-  const ep=`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const body={contents:[{role:"user",parts:[{text:`You are a trading coach.\n\nNet PnL: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nCommission paid: -${comm.toFixed(2)}\nWeekly Goal: ${goal||"N/A"}\nStarting Capital: ${cap||"N/A"}\nROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}\n\nTrades:\n${JSON.stringify(wt,null,2)}\n\nAnalyze whether the goal was met (note how commission costs affected the result), explain why/why not, and give 3 practical adjustments for next week. Be concise.`}]}]};
-  try{
-    const resp=await fetch(ep,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-    const data=await resp.json();
-    let out=extractTextFromGeminiResponse(data);
-    if(!out||!out.trim()){const l=localGoalAnalysis(wt,wk);out=l.html.replace(/<br>/g,"\n");}
-    document.getElementById("aiWeeklyReport").innerHTML=escapeHtml(out).replace(/\n/g,"<br>");
-    showToast("Gemini analysis displayed");
-  }catch(err){const l=localGoalAnalysis(wt,wk);document.getElementById("aiWeeklyReport").innerHTML=l.html;alert("Gemini error: "+(err.message||err)+"\n\nShowing local analysis.");}
+
+  const prompt = `You are a trading coach.\n\nNet PnL: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nCommission paid: -${comm.toFixed(2)}\nWeekly Goal: ${goal||"N/A"}\nStarting Capital: ${cap||"N/A"}\nROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}\n\nTrades:\n${JSON.stringify(wt,null,2)}\n\nAnalyze whether the goal was met (note how commission costs affected the result), explain why/why not, and give 3 practical adjustments for next week. Be concise.`;
+
+  const result = await callGemini(prompt);
+  if(result.ok){
+    document.getElementById("aiWeeklyReport").innerHTML = escapeHtml(result.text).replace(/\n/g,"<br>");
+    showToast("Gemini analysis displayed ✅");
+  } else {
+    const l = localGoalAnalysis(wt,wk);
+    renderGeminiErrorBanner(result.error, l.html);
+    showToast("Gemini failed — showing local analysis");
+  }
 }
 
 /* ===== Analytics ===== */
