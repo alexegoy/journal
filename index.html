@@ -1560,6 +1560,29 @@ function saveGeminiKeyFromInput(){
   setGeminiKey(v);
 }
 
+// Builds a compact, token-light summary of trades for AI prompts.
+// Critically: NEVER includes screenshots (base64 images can be tens of
+// thousands of characters each and were the main cause of quota blowouts)
+// and trims notes to a short snippet. Only the fields the model actually
+// needs to write a useful report are kept.
+function compactTradesForPrompt(wt, maxNoteChars){
+  maxNoteChars = maxNoteChars || 80;
+  return wt.map(t => {
+    const note = (t.notes || "").slice(0, maxNoteChars);
+    return {
+      date: t.date,
+      symbol: t.symbol,
+      result: t.result,
+      pnl: Number(t.pnl) || 0,
+      commission: Number(t.commission) || 0,
+      net: Number(netPnl(t).toFixed(2)),
+      lot: t.lotSize != null ? t.lotSize : undefined,
+      source: t.source && t.source !== "Self" ? t.source : undefined,
+      note: note || undefined
+    };
+  });
+}
+
 async function generateGeminiWeeklyReport(ws,we,ss,wk){
   if(!ws||!we){if(currentWeekRange&&currentWeekRange.start){ws=currentWeekRange.start;we=currentWeekRange.end;ss=currentWeekRange.summary;wk=currentWeekRange.weekKey;}else{alert("Open a weekly modal first.");return;}}
   const wt=getWeeklyTrades(ws,we);
@@ -1573,7 +1596,8 @@ async function generateGeminiWeeklyReport(ws,we,ss,wk){
   const cap=Number(weeklyCapital[wk]||0);
   const roi=cap>0?(pnl/cap)*100:null;
 
-  const prompt = `You are a concise trading analyst.\n\nWeekly Summary:\nNet P&L: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nCommission paid: -${comm.toFixed(2)}\nStarting Capital: ${cap||"N/A"}\nROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}\nWin Rate: ${rate}%\n\nTrades:\n${JSON.stringify(wt,null,2)}\n\nWrite a short professional report (3-5 paragraphs): key insights, strengths, weaknesses, commission impact on net result, and 3 quick action items.`;
+  const compact = compactTradesForPrompt(wt);
+  const prompt = `You are a concise trading analyst.\n\nWeekly Summary:\nNet P&L: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nCommission paid: -${comm.toFixed(2)}\nStarting Capital: ${cap||"N/A"}\nROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}\nWin Rate: ${rate}%\n\nTrades (compact):\n${JSON.stringify(compact)}\n\nWrite a short professional report (3-5 paragraphs): key insights, strengths, weaknesses, commission impact on net result, and 3 quick action items.`;
 
   const result = await callGemini(prompt);
   if(result.ok){
@@ -1597,7 +1621,8 @@ async function generateGeminiGoalAnalysis(ws,we,ss,wk){
   const cap=Number(weeklyCapital[wk]||0);
   const roi=cap>0?(pnl/cap)*100:null;
 
-  const prompt = `You are a trading coach.\n\nNet PnL: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nCommission paid: -${comm.toFixed(2)}\nWeekly Goal: ${goal||"N/A"}\nStarting Capital: ${cap||"N/A"}\nROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}\n\nTrades:\n${JSON.stringify(wt,null,2)}\n\nAnalyze whether the goal was met (note how commission costs affected the result), explain why/why not, and give 3 practical adjustments for next week. Be concise.`;
+  const compact = compactTradesForPrompt(wt);
+  const prompt = `You are a trading coach.\n\nNet PnL: ${(pnl>=0?"+":"")+pnl.toFixed(2)}\nCommission paid: -${comm.toFixed(2)}\nWeekly Goal: ${goal||"N/A"}\nStarting Capital: ${cap||"N/A"}\nROI: ${roi!==null?roi.toFixed(1)+"%":"N/A"}\n\nTrades (compact):\n${JSON.stringify(compact)}\n\nAnalyze whether the goal was met (note how commission costs affected the result), explain why/why not, and give 3 practical adjustments for next week. Be concise.`;
 
   const result = await callGemini(prompt);
   if(result.ok){
