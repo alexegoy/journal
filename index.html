@@ -527,6 +527,43 @@
     .rule-card.danger .rule-icon-badge { background: rgba(248,81,73,0.15); }
     .rule-card.neutral .rule-icon-badge { background: rgba(59,130,246,0.15); }
 
+    /* Entry type toggle (Trade vs Watchlist) */
+    .entry-type-toggle { display:flex; gap:6px; flex-wrap:wrap; }
+    .entry-type-btn {
+      flex:1; min-width:110px; padding:9px 10px; border-radius:9px;
+      border:1px solid var(--border); background:rgba(255,255,255,0.03);
+      color:var(--muted); font-size:12px; font-weight:600; cursor:pointer;
+      transition:all 0.15s; text-align:center;
+    }
+    .entry-type-btn:hover { border-color:rgba(255,255,255,0.2); color:var(--text); }
+    .entry-type-btn.active[data-type="trade"] { background:rgba(59,130,246,0.15); border-color:var(--accent); color:#60a5fa; box-shadow:0 0 12px rgba(59,130,246,0.2); }
+    .entry-type-btn.active[data-type="watchlist"] { background:rgba(139,92,246,0.15); border-color:#8b5cf6; color:#c4b5fd; box-shadow:0 0 12px rgba(139,92,246,0.2); }
+    .entry-type-btn.active[data-tag="missed"] { background:rgba(240,136,62,0.15); border-color:var(--amber); color:var(--amber); }
+    .entry-type-btn.active[data-tag="watching"] { background:rgba(59,130,246,0.15); border-color:var(--accent); color:#60a5fa; }
+    .entry-type-btn.active[data-tag="noquota"] { background:rgba(248,81,73,0.15); border-color:var(--red); color:#fca5a5; }
+
+    /* Calendar watchlist marker */
+    .watch-badge { font-size:9px; color:#c4b5fd; font-weight:600; text-align:right; position:relative; z-index:1; }
+    .day.has-watchlist-only { background:rgba(139,92,246,0.05) !important; border-color:rgba(139,92,246,0.18) !important; }
+
+    /* Watchlist entry rows (in trade list) */
+    .watch-row { border-left:3px solid #8b5cf6; }
+    .watch-tag-badge { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:0.3px; }
+    .watch-tag-badge.missed { background:rgba(240,136,62,0.15); color:var(--amber); }
+    .watch-tag-badge.watching { background:rgba(59,130,246,0.15); color:#60a5fa; }
+    .watch-tag-badge.noquota { background:rgba(248,81,73,0.15); color:#fca5a5; }
+
+    /* Watchlist dedicated view */
+    .watchlist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+    .watch-card { background:var(--card); border:1px solid var(--border); border-left:3px solid #8b5cf6; border-radius:var(--radius-sm); padding:14px; backdrop-filter:blur(12px); }
+    .watch-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; }
+    .watch-card-symbol { font-size:15px; font-weight:700; }
+    .watch-card-date { font-size:11px; color:var(--muted); margin-top:2px; }
+    .watch-card-notes { font-size:12px; color:var(--text-dim); margin:8px 0; line-height:1.5; }
+    .watch-card-thumbs { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+    .watch-card-thumbs img { width:60px; height:44px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid var(--border); }
+    .watch-filter-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+
     /* Cycle cards */
     .cycle-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; margin-bottom:10px; }
     .cycle-card.active-cycle { border-color:rgba(59,130,246,0.5); box-shadow:0 0 18px rgba(59,130,246,0.1); }
@@ -575,6 +612,7 @@
   <!-- Tabs -->
   <div class="tabs">
     <div id="tabJournal" class="tab active" onclick="switchTab('journal')">Journal</div>
+    <div id="tabWatchlist" class="tab" onclick="switchTab('watchlist')">👁 Watchlist</div>
     <div id="tabCharts" class="tab" onclick="switchTab('charts')">Charts</div>
     <div id="tabProp" class="tab" onclick="switchTab('prop')">🏦 Prop Firm</div>
   </div>
@@ -622,6 +660,18 @@
       <div class="chart-card"><h4>Source Distribution</h4><div class="canvas-wrap"><canvas id="sourceChart"></canvas></div></div>
     </div>
     <p class="muted" style="margin-top:12px">All charts use Net P&amp;L (after commission). Updates live.</p>
+  </div>
+
+  <!-- Watchlist tab -->
+  <div id="watchlistTab" style="display:none">
+    <div class="watch-filter-bar">
+      <button class="btn entry-type-btn active" data-watchfilter="all" onclick="setWatchFilter('all')">All</button>
+      <button class="btn entry-type-btn" data-watchfilter="missed" onclick="setWatchFilter('missed')">😩 Missed Setup</button>
+      <button class="btn entry-type-btn" data-watchfilter="watching" onclick="setWatchFilter('watching')">👀 Watching</button>
+      <button class="btn entry-type-btn" data-watchfilter="noquota" onclick="setWatchFilter('noquota')">🛑 No Trade (Quota)</button>
+    </div>
+    <div id="watchlistStats" class="stats-grid" style="margin-bottom:16px"></div>
+    <div id="watchlistGrid" class="watchlist-grid"></div>
   </div>
 
   <!-- Prop Firm tab -->
@@ -745,56 +795,80 @@
         <button class="sheet-close" onclick="closeModal()">&times;</button>
       </div>
 
+      <!-- Entry type toggle -->
+      <div class="field-group">
+        <div id="entryTypeBtns" class="entry-type-toggle">
+          <button type="button" class="entry-type-btn active" data-type="trade" onclick="setEntryType('trade')">📊 Trade</button>
+          <button type="button" class="entry-type-btn" data-type="watchlist" onclick="setEntryType('watchlist')">👁 Watchlist Entry</button>
+        </div>
+        <span class="comm-hint" id="entryTypeHint" style="display:block;margin-top:6px">Logging an executed trade with P&amp;L.</span>
+      </div>
+
       <div class="field-group">
         <label class="field-label">Symbol</label>
         <select id="symbolSelect" style="margin-bottom:8px"></select>
         <input id="inputSymbol" placeholder="Or type custom symbol (e.g. XAUUSD)" autocomplete="off" />
       </div>
 
-      <div class="field-row">
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Gross P&amp;L</label>
-          <input id="inputPnl" type="number" placeholder="e.g. 120.00" step="0.01" />
+      <!-- Trade-only fields (hidden for watchlist entries) -->
+      <div id="tradeOnlyFields">
+        <div class="field-row">
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Gross P&amp;L</label>
+            <input id="inputPnl" type="number" placeholder="e.g. 120.00" step="0.01" />
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Commission <span class="small-muted">(optional)</span></label>
+            <input id="inputCommission" type="number" placeholder="e.g. 3.50" step="0.01" min="0" />
+          </div>
         </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Commission <span class="small-muted">(optional)</span></label>
-          <input id="inputCommission" type="number" placeholder="e.g. 3.50" step="0.01" min="0" />
-        </div>
-      </div>
-      <span class="comm-hint" style="margin-bottom:10px;display:block">Net P&amp;L = Gross P&amp;L − Commission</span>
+        <span class="comm-hint" style="margin-bottom:10px;display:block">Net P&amp;L = Gross P&amp;L − Commission</span>
 
-      <div class="field-group">
-        <label class="field-label">Lot Size <span class="small-muted">(optional)</span></label>
-        <input id="inputLotSize" type="number" placeholder="e.g. 0.10" step="0.01" min="0.01" />
-      </div>
-
-      <div class="field-row" style="margin-bottom:10px">
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Source</label>
-          <select id="inputSourceType" onchange="onSourceTypeChange()">
-            <option value="Self">Self</option>
-            <option value="Signal">Signal</option>
-          </select>
+        <div class="field-group">
+          <label class="field-label">Lot Size <span class="small-muted">(optional)</span></label>
+          <input id="inputLotSize" type="number" placeholder="e.g. 0.10" step="0.01" min="0.01" />
         </div>
-        <div class="field-group" style="margin-bottom:0">
-          <label class="field-label">Provider</label>
-          <select id="inputSourceProvider" style="display:none">
-            <option value="">-- Select --</option>
-            <option>School of Trades (Boss Eddy)</option>
-            <option>RevoGold (Ray)</option>
-            <option>CallistoFX (Nick)</option>
-            <option>TheForexSupport (Casper)</option>
-            <option>TradingCartel (Cartel)</option>
-          </select>
-        </div>
-      </div>
 
-      <div class="field-group">
-        <label class="field-label">Result</label>
-        <div id="resultBtns">
-          <button class="btn result" data-result="win">✅ Win</button>
-          <button class="btn result" data-result="loss">❌ Loss</button>
-          <button class="btn result" data-result="be">➖ BE</button>
+        <div class="field-row" style="margin-bottom:10px">
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Source</label>
+            <select id="inputSourceType" onchange="onSourceTypeChange()">
+              <option value="Self">Self</option>
+              <option value="Signal">Signal</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Provider</label>
+            <select id="inputSourceProvider" style="display:none">
+              <option value="">-- Select --</option>
+              <option>School of Trades (Boss Eddy)</option>
+              <option>RevoGold (Ray)</option>
+              <option>CallistoFX (Nick)</option>
+              <option>TheForexSupport (Casper)</option>
+              <option>TradingCartel (Cartel)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Result</label>
+          <div id="resultBtns">
+            <button class="btn result" data-result="win">✅ Win</button>
+            <button class="btn result" data-result="loss">❌ Loss</button>
+            <button class="btn result" data-result="be">➖ BE</button>
+          </div>
+        </div>
+      </div><!-- /tradeOnlyFields -->
+
+      <!-- Watchlist-only tag (hidden for trades) -->
+      <div id="watchlistOnlyFields" style="display:none">
+        <div class="field-group">
+          <label class="field-label">Watchlist Tag</label>
+          <div id="watchTagBtns" class="entry-type-toggle">
+            <button type="button" class="entry-type-btn active" data-tag="missed" onclick="setWatchTag('missed')">😩 Missed Setup</button>
+            <button type="button" class="entry-type-btn" data-tag="watching" onclick="setWatchTag('watching')">👀 Watching</button>
+            <button type="button" class="entry-type-btn" data-tag="noquota" onclick="setWatchTag('noquota')">🛑 No Trade (Quota)</button>
+          </div>
         </div>
       </div>
 
@@ -815,7 +889,7 @@
       </div>
 
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="btn btn-primary" style="flex:1" onclick="saveTrade()">💾 Save Trade</button>
+        <button class="btn btn-primary" style="flex:1" onclick="saveTrade()" id="saveTradeBtn">💾 Save Trade</button>
         <button class="btn" style="flex:1" onclick="closeModal()">Cancel</button>
       </div>
 
@@ -888,12 +962,25 @@ let today=new Date();
 let currentMonth=today.getMonth();
 let currentYear=today.getFullYear();
 let selectedDate=null,selectedResult=null,editingId=null;
+let currentEntryType="trade"; // "trade" | "watchlist"
+let currentWatchTag="missed"; // "missed" | "watching" | "noquota"
+let watchlistFilter="all";
 let currentWeekRange={start:null,end:null,summary:"",weekKey:null};
 let equityChart=null,pieChart=null,histChart=null,sourceChart=null;
 
 /* ===== Commission helper: Net P&L = gross - commission ===== */
 function netPnl(trade){
   return Number(trade.pnl)-Math.abs(Number(trade.commission||0));
+}
+
+// Returns only actual executed trades, excluding watchlist entries.
+// Use this (not the raw `trades` array) for ANY stats, analytics, charts,
+// or prop-firm calculations so watchlist entries never pollute P&L data.
+function realTrades(){
+  return trades.filter(t => t.entryType !== "watchlist");
+}
+function watchlistEntries(){
+  return trades.filter(t => t.entryType === "watchlist");
 }
 
 /* ===== Date helpers ===== */
@@ -921,10 +1008,13 @@ function switchTab(name){
   document.getElementById("journalTab").style.display=name==="journal"?"":"none";
   document.getElementById("chartsTab").style.display=name==="charts"?"":"none";
   document.getElementById("propTab").style.display=name==="prop"?"":"none";
+  document.getElementById("watchlistTab").style.display=name==="watchlist"?"":"none";
   document.getElementById("tabJournal").classList.toggle("active",name==="journal");
   document.getElementById("tabCharts").classList.toggle("active",name==="charts");
   document.getElementById("tabProp").classList.toggle("active",name==="prop");
+  document.getElementById("tabWatchlist").classList.toggle("active",name==="watchlist");
   if(name==="charts")renderCharts();
+  if(name==="watchlist")renderWatchlistView();
   if(name==="prop"){
     loadPropSettingsToForm();
     updatePropSetupSummary();
@@ -950,7 +1040,9 @@ function renderCalendar(){
   for(let i=0;i<firstDow;i++)cal.innerHTML+="<div class='day empty'></div>";
   for(let d=1;d<=daysInMonth;d++){
     const key=`${currentYear}-${pad(currentMonth+1)}-${pad(d)}`;
-    const dayTrades=trades.filter(t=>t.date===key);
+    const allDayEntries=trades.filter(t=>t.date===key);
+    const dayTrades=allDayEntries.filter(t=>t.entryType!=="watchlist");
+    const dayWatch=allDayEntries.filter(t=>t.entryType==="watchlist");
     const pnl=dayTrades.reduce((a,t)=>a+netPnl(t),0);
     const totalComm=dayTrades.reduce((a,t)=>a+Math.abs(Number(t.commission||0)),0);
     const wins=dayTrades.filter(t=>t.result==="win").length;
@@ -962,15 +1054,18 @@ function renderCalendar(){
     const wrText=nonBe?rate+"% WR":"";
     const trText=dayTrades.length?dayTrades.length+" trade"+(dayTrades.length>1?"s":""):"";
     const commText=totalComm>0?`<div class="comm-badge">-${totalComm.toFixed(2)} comm</div>`:"";
+    const watchText=dayWatch.length?`<div class="watch-badge">👁 ${dayWatch.length}</div>`:"";
     const todayKey=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
     const pnlClass=pnl>0?"has-profit":pnl<0?"has-loss":"";
+    const watchOnlyClass=(dayTrades.length===0 && dayWatch.length>0)?"has-watchlist-only":"";
     const todayClass=key===todayKey?"today-cell":"";
     const click=(dow===0||dow===6)?"":`onclick="openModal('${key}')"`;
     cal.innerHTML+=`
-      <div class="day ${wknd} ${pnlClass} ${todayClass}" ${click}>
+      <div class="day ${wknd} ${pnlClass} ${watchOnlyClass} ${todayClass}" ${click}>
         <div class="day-number">${d}</div>
         <div class="pnl ${pnl>0?"positive":pnl<0?"negative":""}">${pnlText}</div>
         ${commText}
+        ${watchText}
         <div class="winrate">${wrText}</div>
         <div class="trcount">${trText}</div>
       </div>`;
@@ -982,7 +1077,7 @@ function renderCalendar(){
 
 /* ===== Stats ===== */
 function renderStats(){
-  const mt=trades.filter(t=>{
+  const mt=realTrades().filter(t=>{
     const d=new Date(t.date+"T00:00:00");
     return d.getMonth()===currentMonth&&d.getFullYear()===currentYear;
   });
@@ -998,7 +1093,7 @@ function renderStats(){
   document.getElementById("wins").innerText=wins;
   document.getElementById("losses").innerText=losses;
   document.getElementById("winRate").innerText=rate+"%";
-  const ov=computeAnalytics(trades);
+  const ov=computeAnalytics(realTrades());
   document.getElementById("maxDrawdown").innerText=ov.maxDrawdown.toFixed(2);
   document.getElementById("profitFactor").innerText=ov.profitFactor===Infinity?"inf":ov.profitFactor.toFixed(2);
   document.getElementById("winStreak").innerText=ov.longestWinStreak;
@@ -1016,7 +1111,7 @@ function getWeekNumber(d){
 
 function calculateWeeklyStats(){
   const w={};
-  trades.forEach(t=>{
+  realTrades().forEach(t=>{
     const d=new Date(t.date+"T00:00:00");
     const[year,week]=getWeekNumber(d);
     const k=`${year}-W${String(week).padStart(2,"0")}`;
@@ -1081,10 +1176,10 @@ function openWeeklyModal(weekKey,weekStartStr,weekEndStr,shortEsc){
   const shortSummary=shortEsc?decodeURIComponent(shortEsc):`Weekly ${weekKey}`;
   let wt=[],startStr=weekStartStr||"",endStr=weekEndStr||"";
   if(startStr&&endStr){
-    wt=trades.filter(t=>t.date>=formatDateLocal(startStr)&&t.date<=formatDateLocal(endStr));
+    wt=realTrades().filter(t=>t.date>=formatDateLocal(startStr)&&t.date<=formatDateLocal(endStr));
   } else {
     const[y,w]=weekKey.split("-W");
-    wt=trades.filter(t=>{const d=new Date(t.date+"T00:00:00");const[yy,ww]=getWeekNumber(d);return String(yy)===y&&String(ww).padStart(2,"0")===w;});
+    wt=realTrades().filter(t=>{const d=new Date(t.date+"T00:00:00");const[yy,ww]=getWeekNumber(d);return String(yy)===y&&String(ww).padStart(2,"0")===w;});
     if(wt.length){const any=new Date(wt[0].date+"T00:00:00");startStr=formatDateLocal(mondayOfWeekLocal(any));endStr=formatDateLocal(sundayOfWeekLocal(any));}
     else{const any=new Date();startStr=formatDateLocal(mondayOfWeekLocal(any));endStr=formatDateLocal(sundayOfWeekLocal(any));}
   }
@@ -1214,33 +1309,95 @@ function openModal(date){
   selectedDate=date;selectedResult=null;editingId=null;
   document.getElementById("modalDate").innerText=date;
   document.getElementById("modal").classList.add("show");
+  setEntryType("trade");
   resetInputs();renderTradeList();renderDailySummary();renderFavoritesDropdown();
 }
 function closeModal(){document.getElementById("modal").classList.remove("show");}
 
+/* ===== Entry type (Trade vs Watchlist) ===== */
+function setEntryType(type){
+  currentEntryType = type;
+  document.querySelectorAll("#entryTypeBtns .entry-type-btn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.type === type);
+  });
+  const tradeFields = document.getElementById("tradeOnlyFields");
+  const watchFields = document.getElementById("watchlistOnlyFields");
+  const hint = document.getElementById("entryTypeHint");
+  const saveBtn = document.getElementById("saveTradeBtn");
+  if(type === "watchlist"){
+    tradeFields.style.display = "none";
+    watchFields.style.display = "block";
+    hint.textContent = "Logging a setup you watched, missed, or skipped — no P&L tracked.";
+    saveBtn.textContent = "💾 Save Watchlist Entry";
+    selectedResult = null; // not used for watchlist
+  } else {
+    tradeFields.style.display = "block";
+    watchFields.style.display = "none";
+    hint.textContent = "Logging an executed trade with P&L.";
+    saveBtn.textContent = "💾 Save Trade";
+  }
+}
+
+function setWatchTag(tag){
+  currentWatchTag = tag;
+  document.querySelectorAll("#watchTagBtns .entry-type-btn").forEach(b=>{
+    b.classList.toggle("active", b.dataset.tag === tag);
+  });
+}
+
+function watchTagLabel(tag){
+  if(tag==="missed") return "Missed Setup";
+  if(tag==="watching") return "Watching";
+  if(tag==="noquota") return "No Trade (Quota)";
+  return "Watchlist";
+}
+function watchTagEmoji(tag){
+  if(tag==="missed") return "😩";
+  if(tag==="watching") return "👀";
+  if(tag==="noquota") return "🛑";
+  return "👁";
+}
+
 function saveTrade(){
   const sym=(document.getElementById("symbolSelect").value)||(document.getElementById("inputSymbol").value)||"";
+  const notes=document.getElementById("inputNotes").value||"";
+  const screenshots=getPendingScreenshots();
+
+  if(!sym){alert("Enter symbol");return;}
+
+  if(currentEntryType === "watchlist"){
+    // Watchlist entry: no P&L, no result, no commission — just symbol, tag, notes, screenshots
+    if(editingId){
+      trades=trades.map(t=>t.id===editingId?{...t,symbol:sym,notes,screenshots,entryType:"watchlist",watchTag:currentWatchTag,pnl:0,commission:0,lotSize:null,result:null,source:"Self"}:t);
+      showToast("Watchlist entry updated");editingId=null;
+    } else {
+      trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,notes,screenshots,entryType:"watchlist",watchTag:currentWatchTag,pnl:0,commission:0,lotSize:null,result:null,source:"Self"});
+      showToast("Watchlist entry saved 👁");
+    }
+    localStorage.setItem("journal",JSON.stringify(trades));
+    renderTradeList();renderCalendar();renderDailySummary();resetInputs();
+    return;
+  }
+
+  // Regular trade
   const grossPnl=parseFloat(document.getElementById("inputPnl").value||0);
   const commVal=document.getElementById("inputCommission").value;
   const commission=commVal!==""?Math.abs(parseFloat(commVal)||0):0;
   const lotVal=document.getElementById("inputLotSize").value;
   const lotSize=lotVal!==""?Math.abs(parseFloat(lotVal)||0):null;
-  const notes=document.getElementById("inputNotes").value||"";
-  const screenshots=getPendingScreenshots();
   const srcType=document.getElementById("inputSourceType");
   const srcProvider=document.getElementById("inputSourceProvider");
   let source="Self";
   if(srcType&&srcType.value==="Signal"&&srcProvider&&srcProvider.value)source=srcProvider.value;
 
-  if(!sym){alert("Enter symbol");return;}
   if(!selectedResult){alert("Select result (Win/Loss/BE)");return;}
   if(commission<0){alert("Commission cannot be negative");return;}
 
   if(editingId){
-    trades=trades.map(t=>t.id===editingId?{...t,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshots}:t);
+    trades=trades.map(t=>t.id===editingId?{...t,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null}:t);
     showToast("Trade updated");editingId=null;
   } else {
-    trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshots});
+    trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null});
     showToast("Trade saved");
   }
   localStorage.setItem("journal",JSON.stringify(trades));
@@ -1250,10 +1407,12 @@ function saveTrade(){
 /* ===== Export / Import ===== */
 function exportCSV(){
   if(!trades||!trades.length){showToast("No trades to export");return;}
-  const headers=["id","date","symbol","result","pnl","commission","net_pnl","lot_size","notes","source","has_screenshot"];
+  const headers=["id","date","entry_type","watch_tag","symbol","result","pnl","commission","net_pnl","lot_size","notes","source","has_screenshot"];
   const rows=trades.map(t=>headers.map(h=>{
     let v;
-    if(h==="net_pnl")v=netPnl(t).toFixed(2);
+    if(h==="entry_type")v=t.entryType||"trade";
+    else if(h==="watch_tag")v=t.entryType==="watchlist"?(t.watchTag||"missed"):"";
+    else if(h==="net_pnl")v=t.entryType==="watchlist"?"":netPnl(t).toFixed(2);
     else if(h==="lot_size")v=t.lotSize!=null?t.lotSize:"";
     else if(h==="has_screenshot")v=(t.screenshots&&t.screenshots.length)||(t.screenshot)?"yes":"no";
     else v=t[h]==null?"":String(t[h]).replace(/"/g,'""');
@@ -1280,21 +1439,26 @@ function importJSON(input){
     try{
       const obj=JSON.parse(e.target.result);
       if(!Array.isArray(obj)){alert("Invalid JSON: expected an array of trades.");return;}
-      trades=obj.map(t=>({
-        id:t.id?String(t.id):Date.now().toString()+Math.random().toString(36).slice(2,8),
-        date:t.date||formatDateLocal(new Date()),
-        symbol:t.symbol||"NA",
-        result:t.result||"be",
-        pnl:Number(t.pnl)||0,
-        commission:Number(t.commission)||0,
-        lotSize:t.lotSize!=null?Number(t.lotSize):null,
-        notes:t.notes||"",
-        source:t.source||"Self",
-        // migrate old single screenshot to array
-        screenshots:Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[])
-      }));
+      trades=obj.map(t=>{
+        const entryType = t.entryType === "watchlist" ? "watchlist" : "trade";
+        return {
+          id:t.id?String(t.id):Date.now().toString()+Math.random().toString(36).slice(2,8),
+          date:t.date||formatDateLocal(new Date()),
+          symbol:t.symbol||"NA",
+          entryType,
+          watchTag: entryType==="watchlist" ? (t.watchTag||"missed") : null,
+          result: entryType==="watchlist" ? null : (t.result||"be"),
+          pnl:Number(t.pnl)||0,
+          commission:Number(t.commission)||0,
+          lotSize:t.lotSize!=null?Number(t.lotSize):null,
+          notes:t.notes||"",
+          source:t.source||"Self",
+          // migrate old single screenshot to array
+          screenshots:Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[])
+        };
+      });
       localStorage.setItem("journal",JSON.stringify(trades));
-      renderCalendar();showToast("JSON imported");
+      renderCalendar();renderWatchlistView();showToast("JSON imported");
     }catch(err){alert("Failed to import: "+err.message);}
     finally{input.value="";}
   };
@@ -1309,22 +1473,28 @@ function renderTradeList(){
   const dt=trades.filter(t=>t.date===selectedDate);
   if(!dt.length){list.innerHTML=`<p class="muted">No trades yet.</p>`;return;}
   dt.forEach(t=>{
-    const comm=Number(t.commission||0);
-    const net=netPnl(t);
-    const cs=comm>0?` <span class="trade-comm" title="Gross: ${Number(t.pnl)>=0?"+":""}${Number(t.pnl).toFixed(2)}">-${comm.toFixed(2)} comm</span>`:"";
-    const ls=t.lotSize!=null&&t.lotSize>0?` <span class="small-muted">| ${t.lotSize} lot</span>`:"";
-    // normalise: support both old single screenshot and new array
+    const isWatch = t.entryType === "watchlist";
     const imgs=Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[]);
 
     const div=document.createElement("div");
-    div.className="trade-row";
+    div.className = isWatch ? "trade-row watch-row" : "trade-row";
 
     const topDiv=document.createElement("div");
     topDiv.className="trade-row-top";
 
     const infoDiv=document.createElement("div");
     infoDiv.className="trade-row-info";
-    infoDiv.innerHTML=`<div>${t.symbol} &bull; ${t.result.toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:4px">${t.notes||""}</div>`;
+
+    if(isWatch){
+      const tagBadge = `<span class="watch-tag-badge ${t.watchTag||'missed'}">${watchTagEmoji(t.watchTag)} ${watchTagLabel(t.watchTag)}</span>`;
+      infoDiv.innerHTML=`<div>${t.symbol} &bull; ${tagBadge}</div><div class="muted" style="margin-top:4px">${t.notes||""}</div>`;
+    } else {
+      const comm=Number(t.commission||0);
+      const net=netPnl(t);
+      const cs=comm>0?` <span class="trade-comm" title="Gross: ${Number(t.pnl)>=0?"+":""}${Number(t.pnl).toFixed(2)}">-${comm.toFixed(2)} comm</span>`:"";
+      const ls=t.lotSize!=null&&t.lotSize>0?` <span class="small-muted">| ${t.lotSize} lot</span>`:"";
+      infoDiv.innerHTML=`<div>${t.symbol} &bull; ${(t.result||"").toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:4px">${t.notes||""}</div>`;
+    }
 
     // thumbnail strip
     if(imgs.length){
@@ -1374,8 +1544,15 @@ function renderTradeList(){
 function renderDailySummary(){
   const summary=document.getElementById("dailySummary");
   if(!summary)return;
-  const dt=trades.filter(t=>t.date===selectedDate);
-  if(!dt.length){summary.className="daily-summary neutral";summary.innerText="No trades yet.";return;}
+  const allDt=trades.filter(t=>t.date===selectedDate);
+  if(!allDt.length){summary.className="daily-summary neutral";summary.innerText="No trades yet.";return;}
+  const dt=allDt.filter(t=>t.entryType!=="watchlist");
+  const watchCount=allDt.length-dt.length;
+  if(!dt.length){
+    summary.className="daily-summary neutral";
+    summary.innerHTML=`<b>${watchCount} watchlist entr${watchCount>1?"ies":"y"}</b> &bull; No executed trades today.`;
+    return;
+  }
   const pnl=dt.reduce((a,t)=>a+netPnl(t),0);
   const comm=dt.reduce((a,t)=>a+Math.abs(Number(t.commission||0)),0);
   const wins=dt.filter(t=>t.result==="win").length;
@@ -1385,7 +1562,8 @@ function renderDailySummary(){
   let cls=pnl>0?"profit":pnl<0?"loss":"neutral";
   summary.className="daily-summary "+cls;
   const commNote=comm>0?` &bull; Comm: -${comm.toFixed(2)}`:"";
-  summary.innerHTML=`<b>${dt.length} trade(s)</b> &bull; Net P&amp;L: <b>${pnl>=0?"+":""}${pnl.toFixed(2)}</b>${commNote} &bull; WR: <b>${rate}%</b>`;
+  const watchNote=watchCount>0?` &bull; 👁 ${watchCount} watchlist`:"";
+  summary.innerHTML=`<b>${dt.length} trade(s)</b> &bull; Net P&amp;L: <b>${pnl>=0?"+":""}${pnl.toFixed(2)}</b>${commNote} &bull; WR: <b>${rate}%</b>${watchNote}`;
 }
 function editTrade(id){
   const t=trades.find(x=>x.id===id);
@@ -1393,28 +1571,35 @@ function editTrade(id){
   editingId=id;
   document.getElementById("inputSymbol").value=t.symbol;
   document.getElementById("symbolSelect").value="";
-  document.getElementById("inputPnl").value=t.pnl;
-  document.getElementById("inputCommission").value=t.commission||"";
-  document.getElementById("inputLotSize").value=t.lotSize!=null?t.lotSize:"";
   document.getElementById("inputNotes").value=t.notes;
   // restore screenshots
   const imgs=Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[]);
   setPendingScreenshots(imgs);
-  const st=document.getElementById("inputSourceType");
-  const sp=document.getElementById("inputSourceProvider");
-  if(t.source&&t.source!=="Self"){st.value="Signal";sp.style.display="block";sp.value=t.source;}
-  else{st.value="Self";sp.style.display="none";sp.value="";}
-  selectedResult=t.result;highlightResult();
   selectedDate=t.date;
   document.getElementById("modalDate").innerText=t.date;
   document.getElementById("modal").classList.add("show");
+
+  if(t.entryType === "watchlist"){
+    setEntryType("watchlist");
+    setWatchTag(t.watchTag || "missed");
+  } else {
+    setEntryType("trade");
+    document.getElementById("inputPnl").value=t.pnl;
+    document.getElementById("inputCommission").value=t.commission||"";
+    document.getElementById("inputLotSize").value=t.lotSize!=null?t.lotSize:"";
+    const st=document.getElementById("inputSourceType");
+    const sp=document.getElementById("inputSourceProvider");
+    if(t.source&&t.source!=="Self"){st.value="Signal";sp.style.display="block";sp.value=t.source;}
+    else{st.value="Self";sp.style.display="none";sp.value="";}
+    selectedResult=t.result;highlightResult();
+  }
   renderTradeList();renderDailySummary();
 }
 function deleteTrade(id){
-  if(!confirm("Delete this trade?"))return;
+  if(!confirm("Delete this entry?"))return;
   trades=trades.filter(t=>t.id!==id);
   localStorage.setItem("journal",JSON.stringify(trades));
-  renderTradeList();renderCalendar();renderDailySummary();showToast("Trade deleted");
+  renderTradeList();renderCalendar();renderDailySummary();renderWatchlistView();showToast("Entry deleted");
 }
 
 /* ===== UI helpers ===== */
@@ -1468,7 +1653,7 @@ function getWeeklyTrades(s,e){
   const end=e+"T00:00:00".slice(e.length>10?0:0);
   const ss=s.length===10?s:formatDate(new Date(s));
   const ee=e.length===10?e:formatDate(new Date(e));
-  return trades.filter(t=>t.date>=ss&&t.date<=ee);
+  return realTrades().filter(t=>t.date>=ss&&t.date<=ee);
 }
 
 function localWeeklyReport(wt,weekKey){
@@ -1650,14 +1835,15 @@ function computeAnalytics(all){
 
 /* ===== Charts ===== */
 function aggregateByDate(){
-  const dates=Array.from(new Set(trades.map(t=>t.date))).sort();
+  const rt=realTrades();
+  const dates=Array.from(new Set(rt.map(t=>t.date))).sort();
   const labels=[],values=[];let cum=0;
-  dates.forEach(d=>{cum+=trades.filter(t=>t.date===d).reduce((a,t)=>a+netPnl(t),0);labels.push(d);values.push(cum);});
+  dates.forEach(d=>{cum+=rt.filter(t=>t.date===d).reduce((a,t)=>a+netPnl(t),0);labels.push(d);values.push(cum);});
   return{labels,values};
 }
-function buildResultsDist(){const c={win:0,loss:0,be:0};trades.forEach(t=>{if(t.result==="win")c.win++;else if(t.result==="loss")c.loss++;else c.be++;});return c;}
+function buildResultsDist(){const c={win:0,loss:0,be:0};realTrades().forEach(t=>{if(t.result==="win")c.win++;else if(t.result==="loss")c.loss++;else c.be++;});return c;}
 function buildHist(bins=12){
-  const pnls=trades.map(t=>netPnl(t)).sort((a,b)=>a-b);
+  const pnls=realTrades().map(t=>netPnl(t)).sort((a,b)=>a-b);
   if(!pnls.length)return{labels:[],data:[]};
   const min=pnls[0],max=pnls[pnls.length-1],range=max-min||1,bs=range/bins;
   const counts=new Array(bins).fill(0);
@@ -1665,7 +1851,7 @@ function buildHist(bins=12){
   return{labels:counts.map((_,i)=>`${(min+bs*i).toFixed(2)}`),data:counts};
 }
 function buildSrc(lim=12){
-  const map={};trades.forEach(t=>{const s=t.source||"Self";map[s]=(map[s]||0)+1;});
+  const map={};realTrades().forEach(t=>{const s=t.source||"Self";map[s]=(map[s]||0)+1;});
   const e=Object.entries(map).sort((a,b)=>b[1]-a[1]);
   return{labels:e.slice(0,lim).map(x=>x[0]),data:e.slice(0,lim).map(x=>x[1])};
 }
@@ -1882,7 +2068,7 @@ function renderCycleList(){
     if(c.endBal != null){
       pnl = c.endBal - c.startBal;
     } else if(ongoing && c.start){
-      const ct = trades.filter(t => t.date >= c.start && t.date <= todayStr);
+      const ct = realTrades().filter(t => t.date >= c.start && t.date <= todayStr);
       pnl = ct.reduce((a,t) => a + netPnl(t), 0);
     } else {
       pnl = null;
@@ -1897,7 +2083,7 @@ function renderCycleList(){
 
     // trade count for ongoing cycles
     const cycleTradeCount = ongoing && c.start
-      ? trades.filter(t => t.date >= c.start && t.date <= todayStr).length
+      ? realTrades().filter(t => t.date >= c.start && t.date <= todayStr).length
       : null;
 
     // days in cycle
@@ -2035,7 +2221,7 @@ function renderPropDashboard(){
   } else if(activeCycle && activeCycle.start){
     // sum all journal trades from cycle start to today
     const cycleStart = activeCycle.start;
-    const cycleTrades = trades.filter(t => t.date >= cycleStart && t.date <= todayStr);
+    const cycleTrades = realTrades().filter(t => t.date >= cycleStart && t.date <= todayStr);
     const cyclePnlFromJournal = cycleTrades.reduce((a,t) => a + netPnl(t), 0);
     curBal = startBal + cyclePnlFromJournal;
   } else {
@@ -2044,7 +2230,7 @@ function renderPropDashboard(){
 
   // ── Daily loss: calculated from today's journal trades ──
   const todayKey = todayStr;
-  const todayTrades = trades.filter(t => t.date === todayKey);
+  const todayTrades = realTrades().filter(t => t.date === todayKey);
   const todayNetPnl = todayTrades.reduce((a,t) => a + netPnl(t), 0);
   const dailyLossAmt = acct * (s.dailyLossPct / 100);
   const dailyUsed = todayNetPnl < 0 ? Math.abs(todayNetPnl) : 0;
@@ -2063,10 +2249,10 @@ function renderPropDashboard(){
   let peakBal = startBal;
   if(activeCycle && activeCycle.start){
     const cycleStart = activeCycle.start;
-    const cycleDates = Array.from(new Set(trades.filter(t => t.date >= cycleStart && t.date <= todayStr).map(t => t.date))).sort();
+    const cycleDates = Array.from(new Set(realTrades().filter(t => t.date >= cycleStart && t.date <= todayStr).map(t => t.date))).sort();
     let running = startBal;
     cycleDates.forEach(d => {
-      const dayPnl = trades.filter(t => t.date === d).reduce((a,t) => a + netPnl(t), 0);
+      const dayPnl = realTrades().filter(t => t.date === d).reduce((a,t) => a + netPnl(t), 0);
       running += dayPnl;
       if(running > peakBal) peakBal = running;
     });
@@ -2144,7 +2330,7 @@ function renderPropDashboard(){
   if(banner){
     if(activeCycle){
       const cycleStart = activeCycle.start;
-      const cycleTrades = trades.filter(t => t.date >= cycleStart && t.date <= todayStr);
+      const cycleTrades = realTrades().filter(t => t.date >= cycleStart && t.date <= todayStr);
       const tradeCount = cycleTrades.length;
       banner.style.display = "block";
       banner.innerHTML = `<div class="active-banner">📊 <b>${tradeCount} trade(s)</b> logged in this cycle from your journal &nbsp;·&nbsp; <span style="opacity:0.75">💡 Close the cycle once FundedNext ends your trading period to lock in the final balance &amp; payout</span></div>`;
@@ -2258,6 +2444,104 @@ function openLightbox(src){
 function closeLightbox(){
   document.getElementById("lightbox").classList.remove("show");
   document.getElementById("lightboxImg").src="";
+}
+
+/* ===== Watchlist dedicated view ===== */
+function setWatchFilter(tag){
+  watchlistFilter = tag;
+  document.querySelectorAll('[data-watchfilter]').forEach(b=>{
+    b.classList.toggle("active", b.dataset.watchfilter === tag);
+  });
+  renderWatchlistView();
+}
+
+function renderWatchlistView(){
+  const grid = document.getElementById("watchlistGrid");
+  const statsBox = document.getElementById("watchlistStats");
+  if(!grid) return;
+
+  let entries = watchlistEntries();
+
+  // Stats (always over ALL watchlist entries, not just filtered)
+  if(statsBox){
+    const counts = { missed:0, watching:0, noquota:0 };
+    entries.forEach(e => { counts[e.watchTag || "missed"] = (counts[e.watchTag || "missed"] || 0) + 1; });
+    statsBox.innerHTML = `
+      <div class="stat-card"><div class="stat-icon">👁</div><div class="stat-label">Total Entries</div><div class="stat-value">${entries.length}</div></div>
+      <div class="stat-card"><div class="stat-icon">😩</div><div class="stat-label">Missed Setups</div><div class="stat-value">${counts.missed}</div></div>
+      <div class="stat-card"><div class="stat-icon">👀</div><div class="stat-label">Watching</div><div class="stat-value">${counts.watching}</div></div>
+      <div class="stat-card"><div class="stat-icon">🛑</div><div class="stat-label">No Trade (Quota)</div><div class="stat-value">${counts.noquota}</div></div>
+    `;
+  }
+
+  if(watchlistFilter !== "all"){
+    entries = entries.filter(e => (e.watchTag || "missed") === watchlistFilter);
+  }
+
+  grid.innerHTML = "";
+  if(!entries.length){
+    grid.innerHTML = `<p class="muted">No watchlist entries${watchlistFilter!=="all" ? " for this filter" : " yet"}. Open any weekday on the calendar and choose "👁 Watchlist Entry" to log a setup you watched, missed, or skipped.</p>`;
+    return;
+  }
+
+  // newest first
+  const sorted = [...entries].sort((a,b) => b.date.localeCompare(a.date) || (b.id||"").localeCompare(a.id||""));
+
+  sorted.forEach(e => {
+    const imgs = Array.isArray(e.screenshots) ? e.screenshots : (e.screenshot ? [e.screenshot] : []);
+    const card = document.createElement("div");
+    card.className = "watch-card";
+
+    const top = document.createElement("div");
+    top.className = "watch-card-top";
+    top.innerHTML = `
+      <div>
+        <div class="watch-card-symbol">${e.symbol}</div>
+        <div class="watch-card-date">${e.date}</div>
+      </div>
+      <span class="watch-tag-badge ${e.watchTag||'missed'}">${watchTagEmoji(e.watchTag)} ${watchTagLabel(e.watchTag)}</span>
+    `;
+    card.appendChild(top);
+
+    if(e.notes){
+      const notes = document.createElement("div");
+      notes.className = "watch-card-notes";
+      notes.textContent = e.notes;
+      card.appendChild(notes);
+    }
+
+    if(imgs.length){
+      const thumbs = document.createElement("div");
+      thumbs.className = "watch-card-thumbs";
+      imgs.forEach(src => {
+        const img = document.createElement("img");
+        img.src = src; img.alt = "screenshot";
+        img.addEventListener("click", () => openLightbox(src));
+        thumbs.appendChild(img);
+      });
+      card.appendChild(thumbs);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "trade-actions";
+    actions.style.marginTop = "10px";
+
+    const editBtn = document.createElement("button");
+    editBtn.className = "btn";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", () => { openModal(e.date); editTrade(e.id); });
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn btn-danger";
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", () => deleteTrade(e.id));
+
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
+
+    grid.appendChild(card);
+  });
 }
 
 /* ===== Init ===== */
