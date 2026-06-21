@@ -777,6 +777,10 @@
       <div class="chart-card"><h4>Results Distribution</h4><div class="canvas-wrap"><canvas id="pieChart"></canvas></div></div>
       <div class="chart-card"><h4>PnL Histogram</h4><div class="canvas-wrap"><canvas id="histChart"></canvas></div></div>
       <div class="chart-card"><h4>Source Distribution</h4><div class="canvas-wrap"><canvas id="sourceChart"></canvas></div></div>
+      <div class="chart-card"><h4>Buy vs Sell P&amp;L</h4><div class="canvas-wrap"><canvas id="directionPnlChart"></canvas></div></div>
+      <div class="chart-card"><h4>Win Rate by Direction</h4><div class="canvas-wrap"><canvas id="directionWinRateChart"></canvas></div></div>
+      <div class="chart-card"><h4>P&amp;L by Weekday</h4><div class="canvas-wrap"><canvas id="weekdayPnlChart"></canvas></div></div>
+      <div class="chart-card"><h4>Cumulative Commission Drag</h4><div class="canvas-wrap"><canvas id="commissionDragChart"></canvas></div></div>
     </div>
     <p class="muted" style="margin-top:12px">All charts use Net P&amp;L (after commission). Updates live.</p>
   </div>
@@ -1128,6 +1132,7 @@ let currentWatchTag="missed"; // "missed" | "watching" | "noquota"
 let watchlistFilter="all";
 let currentWeekRange={start:null,end:null,summary:"",weekKey:null};
 let equityChart=null,pieChart=null,histChart=null,sourceChart=null;
+let directionPnlChart=null,directionWinRateChart=null,weekdayPnlChart=null,commissionDragChart=null;
 
 /* ===== Commission helper: Net P&L = gross - commission ===== */
 function netPnl(trade){
@@ -2183,11 +2188,61 @@ function buildSrc(lim=12){
   return{labels:e.slice(0,lim).map(x=>x[0]),data:e.slice(0,lim).map(x=>x[1])};
 }
 
+// Buy vs Sell: total net P&L for each direction. Trades with no direction set are excluded.
+function buildDirectionPnl(){
+  const buy = realTrades().filter(t=>t.direction==="buy");
+  const sell = realTrades().filter(t=>t.direction==="sell");
+  return {
+    labels: ["Buy / Long", "Sell / Short"],
+    data: [buy.reduce((a,t)=>a+netPnl(t),0), sell.reduce((a,t)=>a+netPnl(t),0)],
+    counts: [buy.length, sell.length]
+  };
+}
+
+// Win rate (excluding break-evens) for each direction.
+function buildDirectionWinRate(){
+  function rateFor(dir){
+    const dt = realTrades().filter(t=>t.direction===dir);
+    const wins = dt.filter(t=>t.result==="win").length;
+    const nonBe = dt.filter(t=>t.result!=="be").length;
+    return nonBe ? Math.round((wins/nonBe)*100) : 0;
+  }
+  return { labels:["Buy / Long","Sell / Short"], data:[rateFor("buy"), rateFor("sell")] };
+}
+
+// Net P&L summed by day-of-week (Sun..Sat), using each trade's local date.
+function buildWeekdayPnl(){
+  const labels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const sums = new Array(7).fill(0);
+  realTrades().forEach(t=>{
+    const d = new Date(t.date+"T00:00:00");
+    sums[d.getDay()] += netPnl(t);
+  });
+  return { labels, data: sums };
+}
+
+// Running cumulative commission total over time, plotted alongside cumulative
+// net P&L so you can see how much commission is "dragging" your equity curve.
+function buildCommissionDrag(){
+  const rt = realTrades();
+  const dates = Array.from(new Set(rt.map(t=>t.date))).sort();
+  const labels=[], commCum=[], pnlCum=[];
+  let cComm=0, cPnl=0;
+  dates.forEach(d=>{
+    const dayTrades = rt.filter(t=>t.date===d);
+    cComm += dayTrades.reduce((a,t)=>a+Math.abs(Number(t.commission||0)),0);
+    cPnl += dayTrades.reduce((a,t)=>a+netPnl(t),0);
+    labels.push(d); commCum.push(cComm); pnlCum.push(cPnl);
+  });
+  return { labels, commCum, pnlCum };
+}
+
 function renderCharts(){
   if(typeof Chart==="undefined"){
     const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/chart.js";s.onload=()=>renderCharts();document.head.appendChild(s);return;
   }
   const eq=aggregateByDate(),res=buildResultsDist(),hist=buildHist(12),src=buildSrc(12);
+  const dirPnl=buildDirectionPnl(),dirWr=buildDirectionWinRate(),wkPnl=buildWeekdayPnl(),commDrag=buildCommissionDrag();
   const eqEl=document.getElementById("equityChart");
   if(eqEl){const c=eqEl.getContext("2d");if(equityChart)equityChart.destroy();equityChart=new Chart(c,{type:"line",data:{labels:eq.labels,datasets:[{label:"Net Cumulative P&L",data:eq.values,fill:false,tension:0.2,borderWidth:2,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});}
   const pieEl=document.getElementById("pieChart");
@@ -2196,6 +2251,77 @@ function renderCharts(){
   if(histEl){const c=histEl.getContext("2d");if(histChart)histChart.destroy();histChart=new Chart(c,{type:"bar",data:{labels:hist.labels,datasets:[{label:"Count",data:hist.data,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxRotation:30,minRotation:30}}}}});}
   const srcEl=document.getElementById("sourceChart");
   if(srcEl){const c=srcEl.getContext("2d");if(sourceChart)sourceChart.destroy();sourceChart=new Chart(c,{type:"bar",data:{labels:src.labels,datasets:[{label:"Trades",data:src.data,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});}
+
+  // Buy vs Sell P&L
+  const dirPnlEl=document.getElementById("directionPnlChart");
+  if(dirPnlEl){
+    const c=dirPnlEl.getContext("2d");
+    if(directionPnlChart)directionPnlChart.destroy();
+    directionPnlChart=new Chart(c,{
+      type:"bar",
+      data:{labels:dirPnl.labels,datasets:[{
+        label:"Net P&L",
+        data:dirPnl.data,
+        backgroundColor:dirPnl.data.map(v=>v>=0?"rgba(63,185,80,0.7)":"rgba(248,81,73,0.7)"),
+        borderColor:dirPnl.data.map(v=>v>=0?"#3fb950":"#f85149"),
+        borderWidth:1
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>{
+        const i=ctx.dataIndex; return `Net P&L: ${ctx.parsed.y>=0?"+":""}${ctx.parsed.y.toFixed(2)} (${dirPnl.counts[i]} trades)`;
+      }}}},scales:{y:{ticks:{callback:(v)=>"$"+v}}}}
+    });
+  }
+
+  // Win Rate by Direction
+  const dirWrEl=document.getElementById("directionWinRateChart");
+  if(dirWrEl){
+    const c=dirWrEl.getContext("2d");
+    if(directionWinRateChart)directionWinRateChart.destroy();
+    directionWinRateChart=new Chart(c,{
+      type:"bar",
+      data:{labels:dirWr.labels,datasets:[{
+        label:"Win Rate %",
+        data:dirWr.data,
+        backgroundColor:["rgba(59,130,246,0.7)","rgba(139,92,246,0.7)"],
+        borderColor:["#3b82f6","#8b5cf6"],
+        borderWidth:1
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`Win Rate: ${ctx.parsed.y}%`}}},scales:{y:{min:0,max:100,ticks:{callback:(v)=>v+"%"}}}}
+    });
+  }
+
+  // P&L by Weekday
+  const wkPnlEl=document.getElementById("weekdayPnlChart");
+  if(wkPnlEl){
+    const c=wkPnlEl.getContext("2d");
+    if(weekdayPnlChart)weekdayPnlChart.destroy();
+    weekdayPnlChart=new Chart(c,{
+      type:"bar",
+      data:{labels:wkPnl.labels,datasets:[{
+        label:"Net P&L",
+        data:wkPnl.data,
+        backgroundColor:wkPnl.data.map(v=>v>=0?"rgba(63,185,80,0.7)":"rgba(248,81,73,0.7)"),
+        borderColor:wkPnl.data.map(v=>v>=0?"#3fb950":"#f85149"),
+        borderWidth:1
+      }]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`Net P&L: ${ctx.parsed.y>=0?"+":""}${ctx.parsed.y.toFixed(2)}`}}},scales:{y:{ticks:{callback:(v)=>"$"+v}}}}
+    });
+  }
+
+  // Cumulative Commission Drag (commission vs net P&L over time)
+  const commDragEl=document.getElementById("commissionDragChart");
+  if(commDragEl){
+    const c=commDragEl.getContext("2d");
+    if(commissionDragChart)commissionDragChart.destroy();
+    commissionDragChart=new Chart(c,{
+      type:"line",
+      data:{labels:commDrag.labels,datasets:[
+        {label:"Net P&L (cumulative)",data:commDrag.pnlCum,borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,0.08)",fill:true,tension:0.2,borderWidth:2,pointRadius:0},
+        {label:"Commission Paid (cumulative)",data:commDrag.commCum.map(v=>-v),borderColor:"#f0883e",backgroundColor:"rgba(240,136,62,0.12)",fill:true,tension:0.2,borderWidth:2,pointRadius:0}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{boxWidth:10,font:{size:10}}}},scales:{y:{ticks:{callback:(v)=>"$"+v}}}}
+    });
+  }
 }
 
 /* ===== Prop Firm (FundedNext) ===== */
