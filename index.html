@@ -427,6 +427,23 @@
     .btn.result.active[data-result="loss"] { background: rgba(248,81,73,0.15); border-color: var(--red); color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); }
     .btn.result.active[data-result="be"] { background: rgba(59,130,246,0.15); border-color: var(--accent); color: #60a5fa; box-shadow: 0 0 12px rgba(59,130,246,0.2); }
 
+    /* Direction (Buy/Sell) toggle — same shape language as Result buttons */
+    .btn.direction {
+      flex: 1; border-radius: 9px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--muted); padding: 9px 8px;
+      font-size: 13px; font-weight: 600;
+      transition: all var(--dur-fast) var(--ease-out);
+    }
+    .btn.direction:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+    .btn.direction.active[data-direction="buy"] { background: rgba(63,185,80,0.15); border-color: var(--green); color: var(--green); box-shadow: 0 0 12px rgba(63,185,80,0.2); }
+    .btn.direction.active[data-direction="sell"] { background: rgba(248,81,73,0.15); border-color: var(--red); color: var(--red); box-shadow: 0 0 12px rgba(248,81,73,0.2); }
+    /* Small direction badge shown in trade lists/calendar */
+    .direction-badge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; letter-spacing: 0.3px; }
+    .direction-badge.buy { background: rgba(63,185,80,0.15); color: var(--green); }
+    .direction-badge.sell { background: rgba(248,81,73,0.15); color: var(--red); }
+
     /* Daily summary */
     .daily-summary { padding: 12px 16px; border-radius: 10px; text-align: center; font-weight: 600; margin: 10px 0; font-size: 13px; border: 1px solid transparent; }
     .daily-summary.profit { background: rgba(63,185,80,0.1); border-color: rgba(63,185,80,0.25); color: var(--green); }
@@ -964,6 +981,14 @@
           <input id="inputLotSize" type="number" placeholder="e.g. 0.10" step="0.01" min="0.01" />
         </div>
 
+        <div class="field-group">
+          <label class="field-label">Direction</label>
+          <div id="directionBtns" class="entry-type-toggle">
+            <button type="button" class="btn direction" data-direction="buy" onclick="setDirection('buy')">📈 Buy / Long</button>
+            <button type="button" class="btn direction" data-direction="sell" onclick="setDirection('sell')">📉 Sell / Short</button>
+          </div>
+        </div>
+
         <div class="field-row" style="margin-bottom:10px">
           <div class="field-group" style="margin-bottom:0">
             <label class="field-label">Source</label>
@@ -1097,6 +1122,7 @@ let today=new Date();
 let currentMonth=today.getMonth();
 let currentYear=today.getFullYear();
 let selectedDate=null,selectedResult=null,editingId=null;
+let currentDirection=null; // "buy" | "sell" | null (optional, not required to save)
 let currentEntryType="trade"; // "trade" | "watchlist"
 let currentWatchTag="missed"; // "missed" | "watching" | "noquota"
 let watchlistFilter="all";
@@ -1472,7 +1498,7 @@ function openWeeklyModal(weekKey,weekStartStr,weekEndStr,shortEsc){
       const imgs=Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[]);
       const row=document.createElement("div");
       row.className="trade-row";
-      row.innerHTML=`<div>${t.date} &bull; ${t.symbol} &bull; ${t.result.toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:6px">${t.notes||""}</div>`;
+      row.innerHTML=`<div>${t.date} &bull; ${t.symbol}${directionBadgeHtml(t.direction)} &bull; ${t.result.toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:6px">${t.notes||""}</div>`;
       if(imgs.length){
         const strip=document.createElement("div");
         strip.className="thumb-strip";
@@ -1617,6 +1643,28 @@ function watchTagEmoji(tag){
   return "👁";
 }
 
+/* ===== Direction (Buy/Sell) ===== */
+// Direction is optional — toggling the active button again clears it (null = not set).
+function setDirection(dir){
+  currentDirection = (currentDirection === dir) ? null : dir;
+  highlightDirection();
+}
+function highlightDirection(){
+  document.querySelectorAll("#directionBtns .btn.direction").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.direction === currentDirection);
+  });
+}
+function directionLabel(dir){
+  if(dir==="buy") return "BUY";
+  if(dir==="sell") return "SELL";
+  return "";
+}
+function directionBadgeHtml(dir){
+  if(dir!=="buy" && dir!=="sell") return "";
+  const arrow = dir==="buy" ? "▲" : "▼";
+  return ` <span class="direction-badge ${dir}">${arrow} ${directionLabel(dir)}</span>`;
+}
+
 function saveTrade(){
   const sym=(document.getElementById("symbolSelect").value)||(document.getElementById("inputSymbol").value)||"";
   const notes=document.getElementById("inputNotes").value||"";
@@ -1653,10 +1701,10 @@ function saveTrade(){
   if(commission<0){alert("Commission cannot be negative");return;}
 
   if(editingId){
-    trades=trades.map(t=>t.id===editingId?{...t,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null}:t);
+    trades=trades.map(t=>t.id===editingId?{...t,symbol:sym,pnl:grossPnl,commission,lotSize,direction:currentDirection,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null}:t);
     showToast("Trade updated");editingId=null;
   } else {
-    trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null});
+    trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,direction:currentDirection,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null});
     showToast("Trade saved");
   }
   localStorage.setItem("journal",JSON.stringify(trades));
@@ -1666,11 +1714,12 @@ function saveTrade(){
 /* ===== Export / Import ===== */
 function exportCSV(){
   if(!trades||!trades.length){showToast("No trades to export");return;}
-  const headers=["id","date","entry_type","watch_tag","symbol","result","pnl","commission","net_pnl","lot_size","notes","source","has_screenshot"];
+  const headers=["id","date","entry_type","watch_tag","symbol","direction","result","pnl","commission","net_pnl","lot_size","notes","source","has_screenshot"];
   const rows=trades.map(t=>headers.map(h=>{
     let v;
     if(h==="entry_type")v=t.entryType||"trade";
     else if(h==="watch_tag")v=t.entryType==="watchlist"?(t.watchTag||"missed"):"";
+    else if(h==="direction")v=t.direction?directionLabel(t.direction):"";
     else if(h==="net_pnl")v=t.entryType==="watchlist"?"":netPnl(t).toFixed(2);
     else if(h==="lot_size")v=t.lotSize!=null?t.lotSize:"";
     else if(h==="has_screenshot")v=(t.screenshots&&t.screenshots.length)||(t.screenshot)?"yes":"no";
@@ -1705,6 +1754,7 @@ function importJSON(input){
           date:t.date||formatDateLocal(new Date()),
           symbol:t.symbol||"NA",
           entryType,
+          direction: (t.direction==="buy"||t.direction==="sell") ? t.direction : null,
           watchTag: entryType==="watchlist" ? (t.watchTag||"missed") : null,
           result: entryType==="watchlist" ? null : (t.result||"be"),
           pnl:Number(t.pnl)||0,
@@ -1753,7 +1803,7 @@ function renderTradeList(){
       const net=netPnl(t);
       const cs=comm>0?` <span class="trade-comm" title="Gross: ${Number(t.pnl)>=0?"+":""}${Number(t.pnl).toFixed(2)}">-${comm.toFixed(2)} comm</span>`:"";
       const ls=t.lotSize!=null&&t.lotSize>0?` <span class="small-muted">| ${t.lotSize} lot</span>`:"";
-      infoDiv.innerHTML=`<div>${t.symbol} &bull; ${(t.result||"").toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:4px">${t.notes||""}</div>`;
+      infoDiv.innerHTML=`<div>${t.symbol}${directionBadgeHtml(t.direction)} &bull; ${(t.result||"").toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:4px">${t.notes||""}</div>`;
     }
 
     // thumbnail strip
@@ -1852,6 +1902,8 @@ function editTrade(id){
     if(t.source&&t.source!=="Self"){st.value="Signal";sp.style.display="block";sp.value=t.source;}
     else{st.value="Self";sp.style.display="none";sp.value="";}
     selectedResult=t.result;highlightResult();
+    currentDirection = t.direction || null;
+    highlightDirection();
   }
   renderTradeList();renderDailySummary();
 }
@@ -1893,6 +1945,7 @@ function resetInputs(){
   const sp=document.getElementById("inputSourceProvider");sp.value="";sp.style.display="none";
   setPendingScreenshots([]);
   selectedResult=null;editingId=null;highlightResult();
+  currentDirection=null;highlightDirection();
 }
 function highlightResult(){
   document.querySelectorAll("#resultBtns .btn.result").forEach(btn=>{
