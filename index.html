@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Trading Journal Pro</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
     /* ── Design tokens ── */
     :root {
@@ -27,6 +27,27 @@
       --radius: 14px;
       --radius-sm: 10px;
       --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+      /* Spacing scale (4px base) — used for consistent rhythm across all tabs */
+      --sp-1: 4px;
+      --sp-2: 8px;
+      --sp-3: 12px;
+      --sp-4: 16px;
+      --sp-5: 20px;
+      --sp-6: 24px;
+      --sp-8: 32px;
+
+      /* Motion tokens */
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --dur-fast: 0.15s;
+      --dur-med: 0.25s;
+      --dur-slow: 0.4s;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     }
 
     /* Light mode override */
@@ -67,8 +88,17 @@
       z-index: 0;
     }
 
+    /* ── Typography utilities ── */
+    /* Use .num on any element wrapping a dollar/percent figure for tabular
+       alignment — keeps lists of numbers visually aligned like a terminal. */
+    .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    .text-2xs { font-size: 10px; }
+    .text-xs { font-size: 11px; }
+    .text-sm { font-size: 13px; }
+    .label-caps { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+
     /* ── App wrapper ── */
-    .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 16px; }
+    .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: var(--sp-4); }
 
     /* ── Header ── */
     .header {
@@ -107,18 +137,23 @@
 
     /* ── Tab pill ── */
     .tabs {
-      display: flex; gap: 4px; margin-bottom: 16px;
+      display: flex; gap: 4px; margin-bottom: var(--sp-4);
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px; padding: 4px;
       backdrop-filter: blur(20px);
       width: fit-content;
+      flex-wrap: wrap;
     }
     .tab {
       padding: 7px 18px; border-radius: 9px; cursor: pointer;
       font-size: 13px; font-weight: 600; color: var(--muted);
-      transition: all 0.2s; border: none; background: transparent;
+      transition: background var(--dur-med) var(--ease-out), color var(--dur-fast) var(--ease-out),
+                  box-shadow var(--dur-med) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+      border: none; background: transparent;
     }
+    .tab:hover:not(.active) { color: var(--text-dim); background: rgba(255,255,255,0.04); }
+    .tab:active { transform: scale(0.96); }
     .tab.active {
       background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
       color: #fff;
@@ -132,15 +167,20 @@
       background: rgba(255,255,255,0.04);
       color: var(--text-dim); cursor: pointer;
       font-size: 12px; font-weight: 500;
-      transition: all 0.15s; white-space: nowrap;
+      transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out),
+                  border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out),
+                  color var(--dur-fast) var(--ease-out);
+      white-space: nowrap;
     }
     .btn:hover { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.35); color: #93c5fd; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0) scale(0.97); }
     .btn-primary {
       background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
       border-color: transparent; color: #fff; font-weight: 600;
       box-shadow: 0 2px 10px rgba(59,130,246,0.3);
     }
     .btn-primary:hover { box-shadow: 0 4px 18px rgba(59,130,246,0.5); color: #fff; background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); }
+    .btn-primary:active { transform: scale(0.97); }
     .btn-danger { border-color: rgba(248,81,73,0.3); color: var(--red); }
     .btn-danger:hover { background: var(--glow-red); border-color: var(--red); color: var(--red); }
 
@@ -148,8 +188,8 @@
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 10px;
-      margin-bottom: 16px;
+      gap: var(--sp-2);
+      margin-bottom: var(--sp-4);
     }
     .stat-card {
       background: var(--card);
@@ -178,21 +218,21 @@
 
     /* ── Toolbar row ── */
     .toolbar {
-      display: flex; gap: 8px; flex-wrap: wrap;
-      align-items: center; margin-bottom: 16px;
+      display: flex; gap: var(--sp-2); flex-wrap: wrap;
+      align-items: center; margin-bottom: var(--sp-4);
     }
-    .toolbar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .toolbar-right { margin-left: auto; display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
 
     /* ── Calendar ── */
     .cal-section {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 16px;
+      padding: var(--sp-4);
       backdrop-filter: blur(16px);
-      margin-bottom: 16px;
+      margin-bottom: var(--sp-4);
     }
-    .cal-section h3 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; }
+    .cal-section h3 { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: var(--sp-3); }
     .calendar-container { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
     .weekday {
       text-align: center; font-size: 11px; font-weight: 600;
@@ -234,13 +274,20 @@
     .trcount { font-size: 10px; text-align: right; color: var(--muted); position: relative; z-index: 1; }
     .comm-badge { font-size: 9px; color: var(--amber); font-weight: 600; text-align: right; position: relative; z-index: 1; }
 
+    /* Intensity bar: thin colored bar at the bottom of each day cell, width
+       scales with how large that day's P&L was relative to the month's
+       biggest day — gives an at-a-glance sense of which days were "big". */
+    .day-intensity { height: 3px; background: rgba(255,255,255,0.05); border-radius: 99px; overflow: hidden; margin-top: 4px; position: relative; z-index: 1; }
+    .day-intensity-fill { height: 100%; border-radius: 99px; transition: width var(--dur-slow) var(--ease-out); }
+
     /* ── Weekly cards ── */
-    .weekly-section { margin-bottom: 16px; }
+    .weekly-section { margin-bottom: var(--sp-4); }
     .section-title {
-      font-size: 13px; font-weight: 600; color: var(--muted);
+      font-size: 13px; font-weight: 700; color: var(--muted);
       text-transform: uppercase; letter-spacing: 0.8px;
-      margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+      margin: var(--sp-6) 0 var(--sp-3); display: flex; align-items: center; gap: var(--sp-2);
     }
+    .section-title:first-child { margin-top: 0; }
     .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
     .weekly-card {
       cursor: pointer; border-radius: var(--radius-sm);
@@ -295,9 +342,50 @@
     @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     @keyframes popIn { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
+    /* ── Motion utilities ── */
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+    @keyframes shimmerFlash { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+    .fade-in-up { animation: fadeInUp var(--dur-med) var(--ease-out) backwards; }
+    .scale-in { animation: scaleIn var(--dur-med) var(--ease-spring) backwards; }
+    /* Stagger helper: apply alongside fade-in-up, set --stagger-i on each element via JS */
+    .stagger { animation-delay: calc(var(--stagger-i, 0) * 35ms); }
+
+    /* Flash highlight when a number value updates (briefly tints + scales) */
+    @keyframes valueFlash {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+    .value-flash { animation: valueFlash 0.35s var(--ease-spring); }
+
+    /* Generic smooth-everything: applied broadly so layout shifts ease rather than snap */
+    .btn, .tab, .stat-card, .day, .weekly-card, .rule-card, .cycle-card, .watch-card, .trade-row {
+      transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out),
+                  border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+    }
+
     .sheet-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .sheet-header h3 { font-size: 17px; font-weight: 700; }
     .sheet-close { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: all 0.15s; }
+
+    /* ── Empty states ── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: var(--sp-8) var(--sp-5);
+      border: 1px dashed var(--border); border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.015);
+      animation: fadeIn var(--dur-slow) var(--ease-out);
+    }
+    .empty-state-icon {
+      font-size: 32px; margin-bottom: var(--sp-3); opacity: 0.6;
+      filter: grayscale(0.3);
+    }
+    .empty-state-title { font-size: 14px; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
+    .empty-state-sub { font-size: 12px; color: var(--muted); max-width: 320px; line-height: 1.6; }
+    .empty-state-sub b { color: var(--text-dim); }
     .sheet-close:hover { background: var(--glow-red); border-color: var(--red); color: var(--red); }
 
     /* Form fields */
@@ -564,6 +652,19 @@
     .watch-card-thumbs img { width:60px; height:44px; object-fit:cover; border-radius:6px; cursor:pointer; border:1px solid var(--border); }
     .watch-filter-bar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
 
+    /* News / Economic Calendar tab */
+    .news-header { margin-bottom:14px; }
+    .news-header-title { font-size:18px; font-weight:700; margin-bottom:4px; }
+    .news-header-sub { font-size:13px; color:var(--muted); line-height:1.5; max-width:640px; }
+    .news-widget-card {
+      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:8px; backdrop-filter:blur(16px); overflow:hidden;
+      height:600px;
+    }
+    .news-widget-card .tradingview-widget-container,
+    .news-widget-card .tradingview-widget-container__widget { height:100%; width:100%; }
+    @media (max-width:480px) { .news-widget-card { height:520px; } }
+
     /* Cycle cards */
     .cycle-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; margin-bottom:10px; }
     .cycle-card.active-cycle { border-color:rgba(59,130,246,0.5); box-shadow:0 0 18px rgba(59,130,246,0.1); }
@@ -615,21 +716,22 @@
     <div id="tabWatchlist" class="tab" onclick="switchTab('watchlist')">👁 Watchlist</div>
     <div id="tabCharts" class="tab" onclick="switchTab('charts')">Charts</div>
     <div id="tabProp" class="tab" onclick="switchTab('prop')">🏦 Prop Firm</div>
+    <div id="tabNews" class="tab" onclick="switchTab('news')">📰 News</div>
   </div>
 
   <!-- Journal tab -->
   <div id="journalTab">
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Monthly Net P&amp;L</div><div id="totalPnl" class="stat-value">0.00</div></div>
-      <div class="stat-card"><div class="stat-icon">💸</div><div class="stat-label">Commission Paid</div><div id="totalComm" class="stat-value comm-value">0.00</div></div>
-      <div class="stat-card"><div class="stat-icon">📊</div><div class="stat-label">Trades</div><div id="totalTrades" class="stat-value">0</div></div>
-      <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-label">Wins</div><div id="wins" class="stat-value positive">0</div></div>
-      <div class="stat-card"><div class="stat-icon">❌</div><div class="stat-label">Losses</div><div id="losses" class="stat-value negative">0</div></div>
-      <div class="stat-card"><div class="stat-icon">🎯</div><div class="stat-label">Win Rate</div><div id="winRate" class="stat-value">0%</div></div>
-      <div class="stat-card"><div class="stat-icon">📉</div><div class="stat-label">Max Drawdown</div><div id="maxDrawdown" class="stat-value">0.00</div></div>
-      <div class="stat-card"><div class="stat-icon">⚡</div><div class="stat-label">Profit Factor</div><div id="profitFactor" class="stat-value">0.00</div></div>
-      <div class="stat-card"><div class="stat-icon">🔥</div><div class="stat-label">Win Streak</div><div id="winStreak" class="stat-value positive">0</div></div>
-      <div class="stat-card"><div class="stat-icon">🧊</div><div class="stat-label">Loss Streak</div><div id="lossStreak" class="stat-value negative">0</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:0"><div class="stat-icon">💰</div><div class="stat-label">Monthly Net P&amp;L</div><div id="totalPnl" class="stat-value num">0.00</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:1"><div class="stat-icon">💸</div><div class="stat-label">Commission Paid</div><div id="totalComm" class="stat-value comm-value num">0.00</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:2"><div class="stat-icon">📊</div><div class="stat-label">Trades</div><div id="totalTrades" class="stat-value num">0</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:3"><div class="stat-icon">✅</div><div class="stat-label">Wins</div><div id="wins" class="stat-value positive num">0</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:4"><div class="stat-icon">❌</div><div class="stat-label">Losses</div><div id="losses" class="stat-value negative num">0</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:5"><div class="stat-icon">🎯</div><div class="stat-label">Win Rate</div><div id="winRate" class="stat-value num">0%</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:6"><div class="stat-icon">📉</div><div class="stat-label">Max Drawdown</div><div id="maxDrawdown" class="stat-value num">0.00</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:7"><div class="stat-icon">⚡</div><div class="stat-label">Profit Factor</div><div id="profitFactor" class="stat-value num">0.00</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:8"><div class="stat-icon">🔥</div><div class="stat-label">Win Streak</div><div id="winStreak" class="stat-value positive num">0</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:9"><div class="stat-icon">🧊</div><div class="stat-label">Loss Streak</div><div id="lossStreak" class="stat-value negative num">0</div></div>
     </div>
 
     <div class="toolbar">
@@ -672,6 +774,37 @@
     </div>
     <div id="watchlistStats" class="stats-grid" style="margin-bottom:16px"></div>
     <div id="watchlistGrid" class="watchlist-grid"></div>
+  </div>
+
+  <!-- News tab (Economic Calendar + Market Headlines) -->
+  <div id="newsTab" style="display:none">
+    <div class="news-header">
+      <div class="news-header-title">📰 Market News</div>
+      <div class="news-header-sub">High-impact ("red folder") events and breaking headlines — including geopolitical news, central bank surprises, and market-moving statements — can cause sharp volatility. Many traders pause around these to protect their account.</div>
+    </div>
+
+    <div class="tabs" style="margin-bottom:14px">
+      <div id="newsSubCalendar" class="tab active" onclick="switchNewsSubTab('calendar')">🗓 Economic Calendar</div>
+      <div id="newsSubHeadlines" class="tab" onclick="switchNewsSubTab('headlines')">🌍 Market Headlines</div>
+    </div>
+
+    <div id="newsCalendarPane">
+      <div class="news-widget-card">
+        <div class="tradingview-widget-container" id="economicCalendarWidget">
+          <div class="tradingview-widget-container__widget"></div>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:10px">Filter by importance/currency using the controls inside the calendar widget above.</p>
+    </div>
+
+    <div id="newsHeadlinesPane" style="display:none">
+      <div class="news-widget-card">
+        <div class="tradingview-widget-container" id="topStoriesWidget">
+          <div class="tradingview-widget-container__widget"></div>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:10px">Live market headlines — geopolitical events, central bank statements, and breaking news that can move markets. Powered by TradingView.</p>
+    </div>
   </div>
 
   <!-- Prop Firm tab -->
@@ -786,6 +919,8 @@
     <div id="propTotals" style="margin-top:4px"></div>
 
   </div>
+
+</div><!-- /app -->
 
   <!-- DAILY modal -->
   <div class="modal" id="modal" aria-hidden="true">
@@ -983,6 +1118,31 @@ function watchlistEntries(){
   return trades.filter(t => t.entryType === "watchlist");
 }
 
+// Builds a consistent, friendlier empty-state block (icon + title + subtitle)
+// instead of a plain muted line of text. Use across all tabs for empty lists.
+function emptyState(icon, title, sub){
+  return `<div class="empty-state">
+    <div class="empty-state-icon">${icon}</div>
+    <div class="empty-state-title">${title}</div>
+    ${sub ? `<div class="empty-state-sub">${sub}</div>` : ""}
+  </div>`;
+}
+
+// Sets a stat element's text, and briefly "flashes" (scale pulse) if the
+// value actually changed since last render — gives subtle visual feedback
+// that the dashboard updated, without distracting count-up animations on
+// every single re-render (which would fire constantly while typing/etc).
+function setStatValue(id, text){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(el.textContent !== text){
+    el.textContent = text;
+    el.classList.remove("value-flash");
+    void el.offsetWidth; // restart animation
+    el.classList.add("value-flash");
+  }
+}
+
 /* ===== Date helpers ===== */
 function pad(n){return String(n).padStart(2,"0");}
 function formatDateLocal(d){
@@ -1005,16 +1165,31 @@ function sundayOfWeekLocal(d){
 
 /* ===== Tabs ===== */
 function switchTab(name){
-  document.getElementById("journalTab").style.display=name==="journal"?"":"none";
-  document.getElementById("chartsTab").style.display=name==="charts"?"":"none";
-  document.getElementById("propTab").style.display=name==="prop"?"":"none";
-  document.getElementById("watchlistTab").style.display=name==="watchlist"?"":"none";
+  const tabs = ["journal","charts","prop","watchlist","news"];
+  const elIds = { journal:"journalTab", charts:"chartsTab", prop:"propTab", watchlist:"watchlistTab", news:"newsTab" };
+  tabs.forEach(t=>{
+    const el = document.getElementById(elIds[t]);
+    if(t===name){
+      el.style.display="";
+      el.classList.remove("fade-in-up");
+      void el.offsetWidth; // restart animation
+      el.classList.add("fade-in-up");
+    } else {
+      el.style.display="none";
+    }
+  });
   document.getElementById("tabJournal").classList.toggle("active",name==="journal");
   document.getElementById("tabCharts").classList.toggle("active",name==="charts");
   document.getElementById("tabProp").classList.toggle("active",name==="prop");
   document.getElementById("tabWatchlist").classList.toggle("active",name==="watchlist");
+  document.getElementById("tabNews").classList.toggle("active",name==="news");
   if(name==="charts")renderCharts();
   if(name==="watchlist")renderWatchlistView();
+  if(name==="news"){
+    // load whichever sub-pane is currently visible (defaults to calendar)
+    const headlinesVisible = document.getElementById("newsHeadlinesPane").style.display !== "none";
+    if(headlinesVisible) loadTopStoriesWidget(); else loadEconomicCalendarWidget();
+  }
   if(name==="prop"){
     loadPropSettingsToForm();
     updatePropSetupSummary();
@@ -1024,6 +1199,69 @@ function switchTab(name){
     renderPropDashboard();
     renderCycleList();
   }
+}
+
+/* ===== News tab: sub-tab switching ===== */
+function switchNewsSubTab(name){
+  document.getElementById("newsCalendarPane").style.display = name==="calendar" ? "" : "none";
+  document.getElementById("newsHeadlinesPane").style.display = name==="headlines" ? "" : "none";
+  document.getElementById("newsSubCalendar").classList.toggle("active", name==="calendar");
+  document.getElementById("newsSubHeadlines").classList.toggle("active", name==="headlines");
+  if(name==="calendar") loadEconomicCalendarWidget();
+  if(name==="headlines") loadTopStoriesWidget();
+}
+
+/* ===== Economic Calendar (TradingView widget) ===== */
+let economicCalendarLoaded = false;
+function loadEconomicCalendarWidget(){
+  if(economicCalendarLoaded) return; // only load once per session
+  economicCalendarLoaded = true;
+
+  const container = document.querySelector("#economicCalendarWidget .tradingview-widget-container__widget");
+  if(!container) return;
+
+  const isDark = !document.body.classList.contains("light");
+  const script = document.createElement("script");
+  script.type = "text/javascript";
+  script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
+  script.async = true;
+  script.innerHTML = JSON.stringify({
+    colorTheme: isDark ? "dark" : "light",
+    isTransparent: true,
+    width: "100%",
+    height: "100%",
+    locale: "en",
+    importanceFilter: "0,1", // medium + high impact events (TradingView: 0=low,1=med,2=high — shown all by default; user can filter inside widget)
+  });
+  document.getElementById("economicCalendarWidget").appendChild(script);
+}
+
+/* ===== Market Headlines / Top Stories (TradingView widget) ===== */
+// Covers breaking market-moving news: geopolitical events, central bank statements,
+// tariffs, major political/economic headlines — not just scheduled economic data.
+let topStoriesLoaded = false;
+function loadTopStoriesWidget(){
+  if(topStoriesLoaded) return; // only load once per session
+  topStoriesLoaded = true;
+
+  const container = document.querySelector("#topStoriesWidget .tradingview-widget-container__widget");
+  if(!container) return;
+
+  const isDark = !document.body.classList.contains("light");
+  const script = document.createElement("script");
+  script.type = "text/javascript";
+  script.src = "https://s3.tradingview.com/external-embedding/embed-widget-timeline.js";
+  script.async = true;
+  script.innerHTML = JSON.stringify({
+    feedMode: "all_symbols", // broad market news, not tied to one symbol
+    colorTheme: isDark ? "dark" : "light",
+    isTransparent: true,
+    displayMode: "regular",
+    width: "100%",
+    height: "100%",
+    locale: "en",
+  });
+  document.getElementById("topStoriesWidget").appendChild(script);
 }
 
 /* ===== Calendar ===== */
@@ -1037,7 +1275,17 @@ function renderCalendar(){
   document.getElementById("monthLabel").innerText=MONTHS[currentMonth]+" "+currentYear;
   const firstDow=new Date(currentYear,currentMonth,1).getDay();
   const daysInMonth=new Date(currentYear,currentMonth+1,0).getDate();
+
+  // Pre-compute this month's max |pnl| in a single day, for intensity bar scaling
+  let monthMaxAbsPnl = 0;
+  for(let dd=1; dd<=daysInMonth; dd++){
+    const k=`${currentYear}-${pad(currentMonth+1)}-${pad(dd)}`;
+    const dp = trades.filter(t=>t.date===k && t.entryType!=="watchlist").reduce((a,t)=>a+netPnl(t),0);
+    if(Math.abs(dp) > monthMaxAbsPnl) monthMaxAbsPnl = Math.abs(dp);
+  }
+
   for(let i=0;i<firstDow;i++)cal.innerHTML+="<div class='day empty'></div>";
+  let dayIndex=0;
   for(let d=1;d<=daysInMonth;d++){
     const key=`${currentYear}-${pad(currentMonth+1)}-${pad(d)}`;
     const allDayEntries=trades.filter(t=>t.date===key);
@@ -1053,22 +1301,33 @@ function renderCalendar(){
     const pnlText=dayTrades.length?((pnl>0?"+":"")+pnl.toFixed(2)):"";
     const wrText=nonBe?rate+"% WR":"";
     const trText=dayTrades.length?dayTrades.length+" trade"+(dayTrades.length>1?"s":""):"";
-    const commText=totalComm>0?`<div class="comm-badge">-${totalComm.toFixed(2)} comm</div>`:"";
+    const commText=totalComm>0?`<div class="comm-badge num">-${totalComm.toFixed(2)}</div>`:"";
     const watchText=dayWatch.length?`<div class="watch-badge">👁 ${dayWatch.length}</div>`:"";
     const todayKey=`${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
     const pnlClass=pnl>0?"has-profit":pnl<0?"has-loss":"";
     const watchOnlyClass=(dayTrades.length===0 && dayWatch.length>0)?"has-watchlist-only":"";
     const todayClass=key===todayKey?"today-cell":"";
     const click=(dow===0||dow===6)?"":`onclick="openModal('${key}')"`;
+
+    // Intensity bar: width scales with how big this day's P&L was relative to the month's biggest day
+    let intensityBar = "";
+    if(dayTrades.length && monthMaxAbsPnl > 0){
+      const pct = Math.max(8, Math.min(100, (Math.abs(pnl) / monthMaxAbsPnl) * 100));
+      const barColor = pnl > 0 ? "var(--green)" : pnl < 0 ? "var(--red)" : "var(--muted)";
+      intensityBar = `<div class="day-intensity"><div class="day-intensity-fill" style="width:${pct}%;background:${barColor}"></div></div>`;
+    }
+
     cal.innerHTML+=`
-      <div class="day ${wknd} ${pnlClass} ${watchOnlyClass} ${todayClass}" ${click}>
+      <div class="day ${wknd} ${pnlClass} ${watchOnlyClass} ${todayClass} fade-in-up stagger" style="--stagger-i:${dayIndex}" ${click}>
         <div class="day-number">${d}</div>
-        <div class="pnl ${pnl>0?"positive":pnl<0?"negative":""}">${pnlText}</div>
+        <div class="pnl num ${pnl>0?"positive":pnl<0?"negative":""}">${pnlText}</div>
         ${commText}
         ${watchText}
         <div class="winrate">${wrText}</div>
         <div class="trcount">${trText}</div>
+        ${intensityBar}
       </div>`;
+    dayIndex++;
   }
   renderStats();
   renderWeeklyStats();
@@ -1087,17 +1346,17 @@ function renderStats(){
   const losses=mt.filter(t=>t.result==="loss").length;
   const nonBe=mt.filter(t=>t.result!=="be").length;
   const rate=nonBe?Math.round(wins/nonBe*100):0;
-  document.getElementById("totalPnl").innerText=pnl.toFixed(2);
-  document.getElementById("totalComm").innerText="-"+comm.toFixed(2);
-  document.getElementById("totalTrades").innerText=mt.length;
-  document.getElementById("wins").innerText=wins;
-  document.getElementById("losses").innerText=losses;
-  document.getElementById("winRate").innerText=rate+"%";
+  setStatValue("totalPnl", pnl.toFixed(2));
+  setStatValue("totalComm", "-"+comm.toFixed(2));
+  setStatValue("totalTrades", String(mt.length));
+  setStatValue("wins", String(wins));
+  setStatValue("losses", String(losses));
+  setStatValue("winRate", rate+"%");
   const ov=computeAnalytics(realTrades());
-  document.getElementById("maxDrawdown").innerText=ov.maxDrawdown.toFixed(2);
-  document.getElementById("profitFactor").innerText=ov.profitFactor===Infinity?"inf":ov.profitFactor.toFixed(2);
-  document.getElementById("winStreak").innerText=ov.longestWinStreak;
-  document.getElementById("lossStreak").innerText=ov.longestLossStreak;
+  setStatValue("maxDrawdown", ov.maxDrawdown.toFixed(2));
+  setStatValue("profitFactor", ov.profitFactor===Infinity?"inf":ov.profitFactor.toFixed(2));
+  setStatValue("winStreak", String(ov.longestWinStreak));
+  setStatValue("lossStreak", String(ov.longestLossStreak));
 }
 
 /* ===== Weekly ===== */
@@ -1131,7 +1390,7 @@ function renderWeeklyStats(){
   box.innerHTML="";
   const weekly=calculateWeeklyStats();
   const keys=Object.keys(weekly).sort().reverse();
-  if(!keys.length){box.innerHTML=`<p class="muted">No weekly data yet.</p>`;return;}
+  if(!keys.length){box.innerHTML=emptyState("📊","No weekly data yet","Log your first trade and a weekly summary card will show up here automatically.");return;}
   keys.forEach(k=>{
     const wk=weekly[k];
     const nonBe=wk.wins+wk.losses;
@@ -1152,14 +1411,14 @@ function renderWeeklyStats(){
     else if(goal>0&&wk.pnl>=goal)pc="#16a34a";
     else if(wk.pnl>0)pc="#3b82f6";
     box.innerHTML+=`
-      <div class="weekly-card ${cls}" onclick="openWeeklyModal('${k}','${start}','${end}','${encodeURIComponent(`Weekly P&L: ${pnlText} | WinRate: ${rate}%`)}')">
+      <div class="weekly-card ${cls} fade-in-up" onclick="openWeeklyModal('${k}','${start}','${end}','${encodeURIComponent(`Weekly P&L: ${pnlText} | WinRate: ${rate}%`)}')">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
           <div>
             <div class="wcard-week">${k}</div>
             <div class="wcard-dates">${start} → ${end}</div>
           </div>
           <div style="text-align:right;flex-shrink:0">
-            <div class="wcard-pnl ${wk.pnl>=0?"positive":"negative"}">${pnlText}</div>
+            <div class="wcard-pnl num ${wk.pnl>=0?"positive":"negative"}">${pnlText}</div>
             <div class="wcard-meta">${wk.trades}T &bull; ${wk.wins}W &bull; ${wk.losses}L &bull; ${wk.breakeven}BE &bull; ${rate}% WR${roiText}${commText}${capText}</div>
           </div>
         </div>
@@ -1199,10 +1458,10 @@ function openWeeklyModal(weekKey,weekStartStr,weekEndStr,shortEsc){
   const commBadge=comm>0?` &bull; Comm: <b>-${comm.toFixed(2)}</b>`:"";
   const sumEl=document.getElementById("weeklySummary");
   sumEl.className="daily-summary "+pnlClass;
-  sumEl.innerHTML=`<b>${wt.length} trade(s)</b> &bull; Net P&amp;L: <b>${pnl>=0?"+":""}${pnl.toFixed(2)}</b> &bull; WR: <b>${rate}%</b>${roiBadge}${commBadge}`;
+  sumEl.innerHTML=`<b>${wt.length} trade(s)</b> &bull; Net P&amp;L: <b class="num">${pnl>=0?"+":""}${pnl.toFixed(2)}</b> &bull; WR: <b>${rate}%</b>${roiBadge}${commBadge}`;
   const list=document.getElementById("weeklyTradeList");
   list.innerHTML="";
-  if(!wt.length){list.innerHTML=`<p class="muted">No trades this week.</p>`;}
+  if(!wt.length){list.innerHTML=emptyState("🗓","No trades this week","");}
   else{
     wt.sort((a,b)=>a.date.localeCompare(b.date));
     wt.forEach(t=>{
@@ -1471,13 +1730,14 @@ function renderTradeList(){
   if(!list)return;
   list.innerHTML="";
   const dt=trades.filter(t=>t.date===selectedDate);
-  if(!dt.length){list.innerHTML=`<p class="muted">No trades yet.</p>`;return;}
-  dt.forEach(t=>{
+  if(!dt.length){list.innerHTML=emptyState("✏️","No entries yet","Log a trade or a watchlist entry for this day using the form above.");return;}
+  dt.forEach((t, idx)=>{
     const isWatch = t.entryType === "watchlist";
     const imgs=Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[]);
 
     const div=document.createElement("div");
-    div.className = isWatch ? "trade-row watch-row" : "trade-row";
+    div.className = (isWatch ? "trade-row watch-row" : "trade-row") + " fade-in-up stagger";
+    div.style.setProperty("--stagger-i", idx);
 
     const topDiv=document.createElement("div");
     topDiv.className="trade-row-top";
@@ -1563,7 +1823,7 @@ function renderDailySummary(){
   summary.className="daily-summary "+cls;
   const commNote=comm>0?` &bull; Comm: -${comm.toFixed(2)}`:"";
   const watchNote=watchCount>0?` &bull; 👁 ${watchCount} watchlist`:"";
-  summary.innerHTML=`<b>${dt.length} trade(s)</b> &bull; Net P&amp;L: <b>${pnl>=0?"+":""}${pnl.toFixed(2)}</b>${commNote} &bull; WR: <b>${rate}%</b>${watchNote}`;
+  summary.innerHTML=`<b>${dt.length} trade(s)</b> &bull; Net P&amp;L: <b class="num">${pnl>=0?"+":""}${pnl.toFixed(2)}</b>${commNote} &bull; WR: <b>${rate}%</b>${watchNote}`;
 }
 function editTrade(id){
   const t=trades.find(x=>x.id===id);
@@ -1607,6 +1867,20 @@ function toggleDarkMode(){
   document.body.classList.toggle("light");
   const btn=document.getElementById("themeBtn");
   if(btn) btn.textContent=document.body.classList.contains("light")?"🌙":"☀️";
+  // re-load the economic calendar widget so its theme matches (TradingView bakes theme in at load time)
+  if(economicCalendarLoaded){
+    economicCalendarLoaded = false;
+    const widgetInner = document.querySelector("#economicCalendarWidget .tradingview-widget-container__widget");
+    if(widgetInner) widgetInner.innerHTML = "";
+    if(document.getElementById("newsTab").style.display !== "none" && document.getElementById("newsCalendarPane").style.display !== "none") loadEconomicCalendarWidget();
+  }
+  // re-load the top stories / headlines widget so its theme matches too
+  if(topStoriesLoaded){
+    topStoriesLoaded = false;
+    const widgetInner = document.querySelector("#topStoriesWidget .tradingview-widget-container__widget");
+    if(widgetInner) widgetInner.innerHTML = "";
+    if(document.getElementById("newsTab").style.display !== "none" && document.getElementById("newsHeadlinesPane").style.display !== "none") loadTopStoriesWidget();
+  }
 }
 function resetInputs(){
   document.getElementById("symbolSelect").value="";
@@ -1943,7 +2217,7 @@ function renderPropHero(curBal, peakBal, ddFloor, ddRemaining, startBal, activeC
     <div class="prop-hero-top">
       <div>
         <div class="prop-hero-label">${model.label} · Live Balance</div>
-        <div class="prop-hero-balance">$${curBal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <div class="prop-hero-balance num">$${curBal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
         <div class="prop-hero-sub">${cyclePnl>=0?"+":""}$${cyclePnl.toFixed(2)} (${cyclePct>=0?"+":""}${cyclePct.toFixed(2)}%) this cycle</div>
       </div>
       <div class="prop-hero-badge">${phaseLabel}</div>
@@ -2052,7 +2326,7 @@ function renderCycleList(){
 
   const sorted = [...cycles].sort((a,b) => (a.start||"").localeCompare(b.start||"")).reverse();
   if(!sorted.length){
-    box.innerHTML = `<p class="muted" style="margin:8px 0 16px">No cycles logged yet. Add your first trading cycle above.</p>`;
+    box.innerHTML = emptyState("🔄","No cycles logged yet","Add your first trading cycle above to start tracking drawdown, P&amp;L, and payouts.");
     renderPropTotals();
     return;
   }
@@ -2106,7 +2380,8 @@ function renderCycleList(){
     const barColor = cycleFloorPct > 80 ? "#f85149" : cycleFloorPct > 60 ? "#f0883e" : "#3b82f6";
 
     const div = document.createElement("div");
-    div.className = `cycle-card ${cardCls}`;
+    div.className = `cycle-card ${cardCls} fade-in-up stagger`;
+    div.style.setProperty("--stagger-i", idx);
     div.innerHTML = `
       <div class="cycle-header">
         <div>
@@ -2123,7 +2398,7 @@ function renderCycleList(){
           ${c.notes ? `<div class="cycle-meta" style="margin-top:6px;font-style:italic">${c.notes}</div>` : ""}
         </div>
         <div style="text-align:right">
-          <div class="cycle-pnl ${pnlCls}">${pnlText}</div>
+          <div class="cycle-pnl num ${pnlCls}">${pnlText}</div>
           ${pnlPct != null ? `<div class="cycle-meta">${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%</div>` : ""}
         </div>
       </div>
@@ -2191,12 +2466,12 @@ function renderPropTotals(){
   box.innerHTML = `
     <div class="section-title" style="margin-top:4px">📈 All-time Summary</div>
     <div class="prop-totals-card">
-      <div class="prop-total-item"><div class="stat-label">Total Cycles</div><div class="stat-value">${cycles.length} <span class="small-muted">(${closed.length} closed)</span></div></div>
-      <div class="prop-total-item"><div class="stat-label">Winning Cycles</div><div class="stat-value positive">${winCycles} / ${closed.length}</div></div>
-      <div class="prop-total-item"><div class="stat-label">Total Gross Profit</div><div class="stat-value ${totalProfit>=0?"positive":"negative"}">${totalProfit>=0?"+":""}$${totalProfit.toFixed(2)}</div></div>
-      <div class="prop-total-item"><div class="stat-label">Your Total Cut (${split}%)</div><div class="stat-value positive">$${totalYourCut.toFixed(2)}</div></div>
-      <div class="prop-total-item"><div class="stat-label">Actually Paid Out</div><div class="stat-value positive">$${totalPaid.toFixed(2)}</div></div>
-      <div class="prop-total-item"><div class="stat-label">Avg Profit / Cycle</div><div class="stat-value ${avgPnl>=0?"positive":"negative"}">${avgPnl>=0?"+":""}$${avgPnl.toFixed(2)}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Total Cycles</div><div class="stat-value num">${cycles.length} <span class="small-muted">(${closed.length} closed)</span></div></div>
+      <div class="prop-total-item"><div class="stat-label">Winning Cycles</div><div class="stat-value positive num">${winCycles} / ${closed.length}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Total Gross Profit</div><div class="stat-value num ${totalProfit>=0?"positive":"negative"}">${totalProfit>=0?"+":""}$${totalProfit.toFixed(2)}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Your Total Cut (${split}%)</div><div class="stat-value positive num">$${totalYourCut.toFixed(2)}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Actually Paid Out</div><div class="stat-value positive num">$${totalPaid.toFixed(2)}</div></div>
+      <div class="prop-total-item"><div class="stat-label">Avg Profit / Cycle</div><div class="stat-value num ${avgPnl>=0?"positive":"negative"}">${avgPnl>=0?"+":""}$${avgPnl.toFixed(2)}</div></div>
     </div>`;
 }
 
@@ -2296,13 +2571,14 @@ function renderPropDashboard(){
     },
   ];
 
-  cards.forEach(c => {
+  cards.forEach((c, i) => {
     const div = document.createElement("div");
-    div.className = `rule-card ${c.status}`;
+    div.className = `rule-card ${c.status} fade-in-up stagger`;
+    div.style.setProperty("--stagger-i", i);
     div.innerHTML = `
       <div class="rule-icon-badge">${c.icon}</div>
       <div class="rule-label">${c.label}</div>
-      <div class="rule-value">${c.value}</div>
+      <div class="rule-value num">${c.value}</div>
       <div class="rule-sub">${c.sub}</div>
       <div class="rule-bar-outer"><div class="rule-bar-inner" style="width:${c.pct}%"></div></div>`;
     dash.appendChild(div);
@@ -2467,10 +2743,10 @@ function renderWatchlistView(){
     const counts = { missed:0, watching:0, noquota:0 };
     entries.forEach(e => { counts[e.watchTag || "missed"] = (counts[e.watchTag || "missed"] || 0) + 1; });
     statsBox.innerHTML = `
-      <div class="stat-card"><div class="stat-icon">👁</div><div class="stat-label">Total Entries</div><div class="stat-value">${entries.length}</div></div>
-      <div class="stat-card"><div class="stat-icon">😩</div><div class="stat-label">Missed Setups</div><div class="stat-value">${counts.missed}</div></div>
-      <div class="stat-card"><div class="stat-icon">👀</div><div class="stat-label">Watching</div><div class="stat-value">${counts.watching}</div></div>
-      <div class="stat-card"><div class="stat-icon">🛑</div><div class="stat-label">No Trade (Quota)</div><div class="stat-value">${counts.noquota}</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:0"><div class="stat-icon">👁</div><div class="stat-label">Total Entries</div><div class="stat-value num">${entries.length}</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:1"><div class="stat-icon">😩</div><div class="stat-label">Missed Setups</div><div class="stat-value num">${counts.missed}</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:2"><div class="stat-icon">👀</div><div class="stat-label">Watching</div><div class="stat-value num">${counts.watching}</div></div>
+      <div class="stat-card fade-in-up stagger" style="--stagger-i:3"><div class="stat-icon">🛑</div><div class="stat-label">No Trade (Quota)</div><div class="stat-value num">${counts.noquota}</div></div>
     `;
   }
 
@@ -2480,17 +2756,22 @@ function renderWatchlistView(){
 
   grid.innerHTML = "";
   if(!entries.length){
-    grid.innerHTML = `<p class="muted">No watchlist entries${watchlistFilter!=="all" ? " for this filter" : " yet"}. Open any weekday on the calendar and choose "👁 Watchlist Entry" to log a setup you watched, missed, or skipped.</p>`;
+    grid.innerHTML = emptyState(
+      "👁",
+      watchlistFilter!=="all" ? "No entries for this filter" : "No watchlist entries yet",
+      `Open any weekday on the calendar and choose <b>"👁 Watchlist Entry"</b> to log a setup you watched, missed, or skipped.`
+    );
     return;
   }
 
   // newest first
   const sorted = [...entries].sort((a,b) => b.date.localeCompare(a.date) || (b.id||"").localeCompare(a.id||""));
 
-  sorted.forEach(e => {
+  sorted.forEach((e, i) => {
     const imgs = Array.isArray(e.screenshots) ? e.screenshots : (e.screenshot ? [e.screenshot] : []);
     const card = document.createElement("div");
-    card.className = "watch-card";
+    card.className = "watch-card fade-in-up stagger";
+    card.style.setProperty("--stagger-i", i);
 
     const top = document.createElement("div");
     top.className = "watch-card-top";
