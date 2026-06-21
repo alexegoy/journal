@@ -486,17 +486,65 @@
     .lightbox-close { position: fixed; top: 16px; right: 20px; color: #fff; font-size: 28px; cursor: pointer; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
     .lightbox-close:hover { background: rgba(248,81,73,0.3); }
 
-    /* Charts */
-    .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    /* ── Charts tab ── */
+    .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); margin-bottom: var(--sp-2); }
+    .charts-grid-1 { grid-template-columns: 1fr; }
     @media (max-width: 640px) { .charts-grid { grid-template-columns: 1fr; } }
+
     .chart-card {
       background: var(--card); border: 1px solid var(--border);
-      padding: 16px; border-radius: var(--radius-sm);
+      padding: var(--sp-4); border-radius: var(--radius-sm);
       backdrop-filter: blur(12px); display: flex; flex-direction: column;
+      transition: border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
     }
-    .chart-card h4 { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-    .chart-card .canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+    .chart-card:hover { border-color: rgba(59,130,246,0.25); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+    .chart-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: var(--sp-3); flex-wrap: wrap; }
+    .chart-card h4 { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 0; }
+    .chart-card .canvas-wrap { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 200px; }
     canvas { width: 100% !important; height: 200px !important; }
+
+    /* Small inline insight badge inside a chart card header, e.g. "Best: Friday +$420" */
+    .chart-callout {
+      font-size: 11px; font-weight: 600; color: var(--text-dim);
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      padding: 3px 9px; border-radius: 20px; white-space: nowrap;
+      font-family: var(--font-mono); letter-spacing: -0.01em;
+    }
+    .chart-callout.positive { color: var(--green); border-color: rgba(63,185,80,0.3); background: rgba(63,185,80,0.08); }
+    .chart-callout.negative { color: var(--red); border-color: rgba(248,81,73,0.3); background: rgba(248,81,73,0.08); }
+
+    /* Section divider between groups of charts */
+    .chart-section-title {
+      font-size: 13px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin: var(--sp-6) 0 var(--sp-3); display: flex; align-items: center; gap: var(--sp-2);
+    }
+    .chart-section-title:first-of-type { margin-top: var(--sp-2); }
+    .chart-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* Hero equity card — full width, taller, gradient-backed */
+    .chart-hero {
+      background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.05));
+      border: 1px solid rgba(59,130,246,0.22);
+      border-radius: var(--radius); padding: var(--sp-5);
+      backdrop-filter: blur(16px); margin-bottom: var(--sp-2);
+      position: relative; overflow: hidden;
+    }
+    .chart-hero::before {
+      content: ''; position: absolute; top: -30%; right: -8%; width: 260px; height: 260px;
+      background: radial-gradient(circle, rgba(59,130,246,0.18), transparent 70%);
+      pointer-events: none;
+    }
+    .chart-hero-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: var(--sp-3); margin-bottom: var(--sp-4); position: relative; z-index: 1; }
+    .chart-hero-title { font-size: 16px; font-weight: 700; }
+    .chart-hero-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .chart-hero-stats { display: flex; gap: var(--sp-4); flex-wrap: wrap; }
+    .chart-hero-stat { text-align: right; }
+    .chart-hero-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .chart-hero-stat-value { font-size: 18px; font-weight: 800; font-family: var(--font-mono); letter-spacing: -0.02em; }
+    .chart-hero-canvas { min-height: 260px; position: relative; z-index: 1; }
+    .chart-hero-canvas canvas { height: 260px !important; }
+    @media (max-width: 480px) { .chart-hero-canvas, .chart-hero-canvas canvas { min-height: 200px; height: 200px !important; } }
 
     /* Misc */
     hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
@@ -772,17 +820,63 @@
 
   <!-- Charts tab -->
   <div id="chartsTab" style="display:none">
-    <div class="charts-grid">
-      <div class="chart-card"><h4>Equity Curve (Net P&amp;L)</h4><div class="canvas-wrap"><canvas id="equityChart"></canvas></div></div>
-      <div class="chart-card"><h4>Results Distribution</h4><div class="canvas-wrap"><canvas id="pieChart"></canvas></div></div>
-      <div class="chart-card"><h4>PnL Histogram</h4><div class="canvas-wrap"><canvas id="histChart"></canvas></div></div>
-      <div class="chart-card"><h4>Source Distribution</h4><div class="canvas-wrap"><canvas id="sourceChart"></canvas></div></div>
-      <div class="chart-card"><h4>Buy vs Sell P&amp;L</h4><div class="canvas-wrap"><canvas id="directionPnlChart"></canvas></div></div>
-      <div class="chart-card"><h4>Win Rate by Direction</h4><div class="canvas-wrap"><canvas id="directionWinRateChart"></canvas></div></div>
-      <div class="chart-card"><h4>P&amp;L by Weekday</h4><div class="canvas-wrap"><canvas id="weekdayPnlChart"></canvas></div></div>
-      <div class="chart-card"><h4>Cumulative Commission Drag</h4><div class="canvas-wrap"><canvas id="commissionDragChart"></canvas></div></div>
+
+    <!-- Hero: Equity Curve, full-width -->
+    <div class="chart-hero">
+      <div class="chart-hero-header">
+        <div>
+          <div class="chart-hero-title">📈 Equity Curve</div>
+          <div class="chart-hero-sub">Cumulative Net P&amp;L over time</div>
+        </div>
+        <div id="equityHeroStats" class="chart-hero-stats"></div>
+      </div>
+      <div class="canvas-wrap chart-hero-canvas"><canvas id="equityChart"></canvas></div>
     </div>
-    <p class="muted" style="margin-top:12px">All charts use Net P&amp;L (after commission). Updates live.</p>
+
+    <!-- Performance section -->
+    <div class="chart-section-title">🎯 Performance Breakdown</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-head"><h4>Results Distribution</h4></div>
+        <div class="canvas-wrap"><canvas id="pieChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head"><h4>P&amp;L Histogram</h4></div>
+        <div class="canvas-wrap"><canvas id="histChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head"><h4>P&amp;L by Weekday</h4><span id="weekdayCallout" class="chart-callout"></span></div>
+        <div class="canvas-wrap"><canvas id="weekdayPnlChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head"><h4>Source Distribution</h4></div>
+        <div class="canvas-wrap"><canvas id="sourceChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Behavior section -->
+    <div class="chart-section-title">🧭 Trading Behavior</div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-head"><h4>Buy vs Sell P&amp;L</h4><span id="directionCallout" class="chart-callout"></span></div>
+        <div class="canvas-wrap"><canvas id="directionPnlChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-head"><h4>Win Rate by Direction</h4></div>
+        <div class="canvas-wrap"><canvas id="directionWinRateChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Cost section -->
+    <div class="chart-section-title">💸 Cost Impact</div>
+    <div class="charts-grid charts-grid-1">
+      <div class="chart-card">
+        <div class="chart-card-head"><h4>Cumulative Commission Drag</h4><span id="commCallout" class="chart-callout"></span></div>
+        <div class="canvas-wrap"><canvas id="commissionDragChart"></canvas></div>
+      </div>
+    </div>
+
+    <p class="muted" style="margin-top:14px">All charts use Net P&amp;L (after commission). Updates live as you add, edit, or delete trades.</p>
   </div>
 
   <!-- Watchlist tab -->
@@ -1133,6 +1227,7 @@ let watchlistFilter="all";
 let currentWeekRange={start:null,end:null,summary:"",weekKey:null};
 let equityChart=null,pieChart=null,histChart=null,sourceChart=null;
 let directionPnlChart=null,directionWinRateChart=null,weekdayPnlChart=null,commissionDragChart=null;
+let chartsEntranceDone=false; // only stagger-animate chart cards on first paint, not every re-render
 
 /* ===== Commission helper: Net P&L = gross - commission ===== */
 function netPnl(trade){
@@ -2243,14 +2338,108 @@ function renderCharts(){
   }
   const eq=aggregateByDate(),res=buildResultsDist(),hist=buildHist(12),src=buildSrc(12);
   const dirPnl=buildDirectionPnl(),dirWr=buildDirectionWinRate(),wkPnl=buildWeekdayPnl(),commDrag=buildCommissionDrag();
+
+  // ── Hero: Equity Curve with gradient fill ──
   const eqEl=document.getElementById("equityChart");
-  if(eqEl){const c=eqEl.getContext("2d");if(equityChart)equityChart.destroy();equityChart=new Chart(c,{type:"line",data:{labels:eq.labels,datasets:[{label:"Net Cumulative P&L",data:eq.values,fill:false,tension:0.2,borderWidth:2,pointRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});}
+  if(eqEl){
+    const c=eqEl.getContext("2d");
+    if(equityChart)equityChart.destroy();
+    const finalVal = eq.values.length ? eq.values[eq.values.length-1] : 0;
+    const isUp = finalVal >= 0;
+    const lineColor = isUp ? "#3fb950" : "#f85149";
+    const gradient = c.createLinearGradient(0, 0, 0, 260);
+    gradient.addColorStop(0, isUp ? "rgba(63,185,80,0.35)" : "rgba(248,81,73,0.35)");
+    gradient.addColorStop(1, isUp ? "rgba(63,185,80,0)" : "rgba(248,81,73,0)");
+    equityChart=new Chart(c,{
+      type:"line",
+      data:{labels:eq.labels,datasets:[{
+        label:"Net Cumulative P&L", data:eq.values,
+        fill:true, backgroundColor:gradient,
+        borderColor:lineColor, tension:0.3, borderWidth:2.5,
+        pointRadius:0, pointHoverRadius:5, pointHoverBackgroundColor:lineColor, pointHoverBorderColor:"#fff", pointHoverBorderWidth:2
+      }]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        animation:{duration:600, easing:"easeOutQuart"},
+        plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=>`Net P&L: ${ctx.parsed.y>=0?"+":""}${ctx.parsed.y.toFixed(2)}`}}},
+        scales:{
+          x:{grid:{display:false}, ticks:{maxTicksLimit:8, font:{size:10}}},
+          y:{ticks:{callback:(v)=>"$"+v, font:{size:10}}, grid:{color:"rgba(255,255,255,0.04)"}}
+        }
+      }
+    });
+
+    // Hero stat callouts: current total, best day, worst day
+    const heroStats = document.getElementById("equityHeroStats");
+    if(heroStats){
+      const rt = realTrades();
+      let bestDay = {date:null, val:-Infinity}, worstDay = {date:null, val:Infinity};
+      const byDate = {};
+      rt.forEach(t=>{ byDate[t.date] = (byDate[t.date]||0) + netPnl(t); });
+      Object.entries(byDate).forEach(([d,v])=>{
+        if(v>bestDay.val) bestDay={date:d,val:v};
+        if(v<worstDay.val) worstDay={date:d,val:v};
+      });
+      heroStats.innerHTML = `
+        <div class="chart-hero-stat">
+          <div class="chart-hero-stat-label">Total Net P&amp;L</div>
+          <div class="chart-hero-stat-value" style="color:${finalVal>=0?'var(--green)':'var(--red)'}">${finalVal>=0?"+":""}$${finalVal.toFixed(2)}</div>
+        </div>
+        ${bestDay.date ? `<div class="chart-hero-stat">
+          <div class="chart-hero-stat-label">Best Day</div>
+          <div class="chart-hero-stat-value" style="color:var(--green);font-size:14px">+$${bestDay.val.toFixed(2)}</div>
+        </div>` : ""}
+        ${worstDay.date && worstDay.val < 0 ? `<div class="chart-hero-stat">
+          <div class="chart-hero-stat-label">Worst Day</div>
+          <div class="chart-hero-stat-value" style="color:var(--red);font-size:14px">-$${Math.abs(worstDay.val).toFixed(2)}</div>
+        </div>` : ""}
+      `;
+    }
+  }
+
   const pieEl=document.getElementById("pieChart");
-  if(pieEl){const c=pieEl.getContext("2d");if(pieChart)pieChart.destroy();pieChart=new Chart(c,{type:"pie",data:{labels:["Wins","Losses","BE"],datasets:[{data:[res.win,res.loss,res.be],borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom"}}}});}
+  if(pieEl){const c=pieEl.getContext("2d");if(pieChart)pieChart.destroy();pieChart=new Chart(c,{type:"pie",data:{labels:["Wins","Losses","BE"],datasets:[{data:[res.win,res.loss,res.be],backgroundColor:["#3fb950","#f85149","#3b82f6"],borderColor:"rgba(13,17,23,0.6)",borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{position:"bottom",labels:{boxWidth:10,font:{size:10},color:"#8b949e"}}}}});}
   const histEl=document.getElementById("histChart");
-  if(histEl){const c=histEl.getContext("2d");if(histChart)histChart.destroy();histChart=new Chart(c,{type:"bar",data:{labels:hist.labels,datasets:[{label:"Count",data:hist.data,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{maxRotation:30,minRotation:30}}}}});}
+  if(histEl){const c=histEl.getContext("2d");if(histChart)histChart.destroy();histChart=new Chart(c,{type:"bar",data:{labels:hist.labels,datasets:[{label:"Count",data:hist.data,backgroundColor:"rgba(59,130,246,0.6)",borderColor:"#3b82f6",borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{display:false}},scales:{x:{ticks:{maxRotation:30,minRotation:30,font:{size:9}},grid:{display:false}},y:{grid:{color:"rgba(255,255,255,0.04)"}}}}});}
   const srcEl=document.getElementById("sourceChart");
-  if(srcEl){const c=srcEl.getContext("2d");if(sourceChart)sourceChart.destroy();sourceChart=new Chart(c,{type:"bar",data:{labels:src.labels,datasets:[{label:"Trades",data:src.data,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});}
+  if(srcEl){const c=srcEl.getContext("2d");if(sourceChart)sourceChart.destroy();sourceChart=new Chart(c,{type:"bar",data:{labels:src.labels,datasets:[{label:"Trades",data:src.data,backgroundColor:"rgba(139,92,246,0.6)",borderColor:"#8b5cf6",borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{grid:{color:"rgba(255,255,255,0.04)"}}}}});}
+
+  // Weekday callout: best/worst weekday
+  const wkCallout = document.getElementById("weekdayCallout");
+  if(wkCallout){
+    const maxIdx = wkPnl.data.indexOf(Math.max(...wkPnl.data));
+    const hasAny = wkPnl.data.some(v=>v!==0);
+    if(hasAny){
+      const best = wkPnl.data[maxIdx];
+      wkCallout.textContent = `Best: ${wkPnl.labels[maxIdx]} ${best>=0?"+":""}$${best.toFixed(0)}`;
+      wkCallout.className = "chart-callout " + (best>=0?"positive":"negative");
+    } else {
+      wkCallout.textContent = ""; wkCallout.className = "chart-callout";
+    }
+  }
+
+  // Direction callout: which side is more profitable
+  const dirCallout = document.getElementById("directionCallout");
+  if(dirCallout){
+    const [buyPnl, sellPnl] = dirPnl.data;
+    if(dirPnl.counts[0]>0 || dirPnl.counts[1]>0){
+      const better = buyPnl >= sellPnl ? "Buy" : "Sell";
+      const betterVal = Math.max(buyPnl, sellPnl);
+      dirCallout.textContent = `${better} leads: ${betterVal>=0?"+":""}$${betterVal.toFixed(0)}`;
+      dirCallout.className = "chart-callout " + (betterVal>=0?"positive":"negative");
+    } else {
+      dirCallout.textContent = "No direction data yet";
+      dirCallout.className = "chart-callout";
+    }
+  }
+
+  // Commission callout: total commission paid
+  const commCallout = document.getElementById("commCallout");
+  if(commCallout){
+    const totalComm = commDrag.commCum.length ? commDrag.commCum[commDrag.commCum.length-1] : 0;
+    commCallout.textContent = totalComm>0 ? `Total: -$${totalComm.toFixed(2)}` : "No commission logged";
+    commCallout.className = "chart-callout" + (totalComm>0?" negative":"");
+  }
 
   // Buy vs Sell P&L
   const dirPnlEl=document.getElementById("directionPnlChart");
@@ -2264,11 +2453,11 @@ function renderCharts(){
         data:dirPnl.data,
         backgroundColor:dirPnl.data.map(v=>v>=0?"rgba(63,185,80,0.7)":"rgba(248,81,73,0.7)"),
         borderColor:dirPnl.data.map(v=>v>=0?"#3fb950":"#f85149"),
-        borderWidth:1
+        borderWidth:1.5, borderRadius:6, maxBarThickness:64
       }]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>{
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:500,easing:"easeOutQuart"},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>{
         const i=ctx.dataIndex; return `Net P&L: ${ctx.parsed.y>=0?"+":""}${ctx.parsed.y.toFixed(2)} (${dirPnl.counts[i]} trades)`;
-      }}}},scales:{y:{ticks:{callback:(v)=>"$"+v}}}}
+      }}}},scales:{x:{grid:{display:false}},y:{ticks:{callback:(v)=>"$"+v},grid:{color:"rgba(255,255,255,0.04)"}}}}
     });
   }
 
@@ -2284,9 +2473,9 @@ function renderCharts(){
         data:dirWr.data,
         backgroundColor:["rgba(59,130,246,0.7)","rgba(139,92,246,0.7)"],
         borderColor:["#3b82f6","#8b5cf6"],
-        borderWidth:1
+        borderWidth:1.5, borderRadius:6, maxBarThickness:64
       }]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`Win Rate: ${ctx.parsed.y}%`}}},scales:{y:{min:0,max:100,ticks:{callback:(v)=>v+"%"}}}}
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:500,easing:"easeOutQuart"},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`Win Rate: ${ctx.parsed.y}%`}}},scales:{x:{grid:{display:false}},y:{min:0,max:100,ticks:{callback:(v)=>v+"%"},grid:{color:"rgba(255,255,255,0.04)"}}}}
     });
   }
 
@@ -2302,9 +2491,9 @@ function renderCharts(){
         data:wkPnl.data,
         backgroundColor:wkPnl.data.map(v=>v>=0?"rgba(63,185,80,0.7)":"rgba(248,81,73,0.7)"),
         borderColor:wkPnl.data.map(v=>v>=0?"#3fb950":"#f85149"),
-        borderWidth:1
+        borderWidth:1.5, borderRadius:5, maxBarThickness:36
       }]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`Net P&L: ${ctx.parsed.y>=0?"+":""}${ctx.parsed.y.toFixed(2)}`}}},scales:{y:{ticks:{callback:(v)=>"$"+v}}}}
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:500,easing:"easeOutQuart"},plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>`Net P&L: ${ctx.parsed.y>=0?"+":""}${ctx.parsed.y.toFixed(2)}`}}},scales:{x:{grid:{display:false}},y:{ticks:{callback:(v)=>"$"+v},grid:{color:"rgba(255,255,255,0.04)"}}}}
     });
   }
 
@@ -2313,13 +2502,27 @@ function renderCharts(){
   if(commDragEl){
     const c=commDragEl.getContext("2d");
     if(commissionDragChart)commissionDragChart.destroy();
+    const pnlGrad=c.createLinearGradient(0,0,0,220);
+    pnlGrad.addColorStop(0,"rgba(59,130,246,0.25)"); pnlGrad.addColorStop(1,"rgba(59,130,246,0)");
+    const commGrad=c.createLinearGradient(0,0,0,220);
+    commGrad.addColorStop(0,"rgba(240,136,62,0.25)"); commGrad.addColorStop(1,"rgba(240,136,62,0)");
     commissionDragChart=new Chart(c,{
       type:"line",
       data:{labels:commDrag.labels,datasets:[
-        {label:"Net P&L (cumulative)",data:commDrag.pnlCum,borderColor:"#3b82f6",backgroundColor:"rgba(59,130,246,0.08)",fill:true,tension:0.2,borderWidth:2,pointRadius:0},
-        {label:"Commission Paid (cumulative)",data:commDrag.commCum.map(v=>-v),borderColor:"#f0883e",backgroundColor:"rgba(240,136,62,0.12)",fill:true,tension:0.2,borderWidth:2,pointRadius:0}
+        {label:"Net P&L (cumulative)",data:commDrag.pnlCum,borderColor:"#3b82f6",backgroundColor:pnlGrad,fill:true,tension:0.3,borderWidth:2.5,pointRadius:0,pointHoverRadius:4},
+        {label:"Commission Paid (cumulative)",data:commDrag.commCum.map(v=>-v),borderColor:"#f0883e",backgroundColor:commGrad,fill:true,tension:0.3,borderWidth:2.5,pointRadius:0,pointHoverRadius:4}
       ]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{boxWidth:10,font:{size:10}}}},scales:{y:{ticks:{callback:(v)=>"$"+v}}}}
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:600,easing:"easeOutQuart"},plugins:{legend:{position:"bottom",labels:{boxWidth:10,font:{size:10},color:"#8b949e",usePointStyle:true,pointStyle:"circle"}}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}},y:{ticks:{callback:(v)=>"$"+v,font:{size:10}},grid:{color:"rgba(255,255,255,0.04)"}}}}
+    });
+  }
+
+  // Staggered entrance for chart cards (only animate on first paint of this view,
+  // not on every data refresh, to avoid distracting re-flashes while trading)
+  if(!chartsEntranceDone){
+    chartsEntranceDone = true;
+    document.querySelectorAll("#chartsTab .chart-card, #chartsTab .chart-hero").forEach((el,i)=>{
+      el.classList.add("fade-in-up","stagger");
+      el.style.setProperty("--stagger-i", i);
     });
   }
 }
