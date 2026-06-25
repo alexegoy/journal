@@ -804,6 +804,8 @@
       <button class="btn" onclick="exportJSON()">⬇ JSON</button>
       <button class="btn" onclick="document.getElementById('importJson').click()">⬆ Import</button>
       <input id="importJson" type="file" accept="application/json" class="hidden-file" onchange="importJSON(this)" />
+      <button class="btn btn-danger" onclick="freeUpSpace()" title="Remove screenshots from older trades to free localStorage space">🗑 Free Up Space</button>
+      <div id="storageMeter" style="display:flex;flex-direction:column;align-items:flex-start;margin-left:4px;cursor:default"></div>
     </div>
 
     <div class="cal-section">
@@ -1211,10 +1213,161 @@
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-let trades=JSON.parse(localStorage.getItem("journal")||"[]");
+let trades = [];
 let favorites=JSON.parse(localStorage.getItem("favorites")||'["BTCUSDT","ETHUSDT","EURUSD","XAUUSD","GBPJPY"]');
 let weeklyCapital=JSON.parse(localStorage.getItem("weeklyCapital")||"{}");
 let weeklyGoals=JSON.parse(localStorage.getItem("weeklyGoals")||"{}");
+
+/* ===== IndexedDB Storage Layer =====
+   Trades (with screenshots) live in IndexedDB — effectively unlimited space.
+   Tiny settings (favorites, weeklyCapital, etc.) stay in localStorage.
+   On first load, any existing localStorage journal data is migrated automatically.
+*/
+const DB_NAME = "TradingJournalDB";
+const DB_VERSION = 1;
+const STORE_TRADES = "trades";
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(STORE_TRADES)) {
+        d.createObjectStore(STORE_TRADES, { keyPath: "id" });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbGetAll() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TRADES, "readonly");
+    const req = tx.objectStore(STORE_TRADES).getAll();
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function dbPutAll(tradeArray) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_TRADES, "readwrite");
+    const store = tx.objectStore(STORE_TRADES);
+    // Clear and rewrite all — simple and reliable
+    const clearReq = store.clear();
+    clearReq.onsuccess = () => {
+      let pending = tradeArray.length;
+      if (pending === 0) { resolve(); return; }
+      tradeArray.forEach(t => {
+        const r = store.put(t);
+        r.onsuccess = () => { pending--; if (pending === 0) resolve(); };
+        r.onerror = e => reject(e.target.error);
+      });
+    };
+    clearReq.onerror = e => reject(e.target.error);
+  });
+}
+
+async function saveTrades() {
+  await dbPutAll(trades);
+  updateStorageMeter();
+}
+
+// Migrate any existing localStorage journal data into IndexedDB on first run
+async function migrateFromLocalStorage() {
+  const legacy = localStorage.getItem("journal");
+  if (!legacy) return;
+  try {
+    const legacyTrades = JSON.parse(legacy);
+    if (Array.isArray(legacyTrades) && legacyTrades.length > 0) {
+      const existing = await dbGetAll();
+      if (existing.length === 0) {
+        // Only migrate if IndexedDB is empty (fresh migration)
+        await dbPutAll(legacyTrades);
+        showToast(`✅ Migrated ${legacyTrades.length} trades from old storage to IndexedDB`);
+      }
+      localStorage.removeItem("journal"); // clean up old data
+    } else {
+      localStorage.removeItem("journal");
+    }
+  } catch(e) {
+    console.warn("Migration error:", e);
+  }
+}
+
+// Kept for backward compat (weeklyCapital, weeklyGoals, favorites still use localStorage)
+function safeSetItem(key, value) {
+  try { localStorage.setItem(key, value); return true; }
+  catch(e) { console.error("localStorage error", e); return false; }
+}
+
+async function updateStorageMeter() {
+  const el = document.getElementById("storageMeter");
+  if (!el) return;
+  try {
+    if (navigator.storage && navigator.storage.estimate) {
+      const { usage, quota } = await navigator.storage.estimate();
+      const usedMB = (usage / 1024 / 1024).toFixed(1);
+      const quotaMB = Math.round(quota / 1024 / 1024);
+      const pct = Math.min(100, Math.round((usage / quota) * 100));
+      const color = pct >= 90 ? "#f85149" : pct >= 70 ? "#f0883e" : "#3fb950";
+      el.innerHTML = `
+        <span style="font-size:11px;color:var(--muted)">Storage: ${usedMB}MB / ${quotaMB}MB</span>
+        <div style="width:80px;height:5px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;margin-top:3px">
+          <div style="width:${pct}%;height:100%;background:${color};border-radius:99px;transition:width 0.4s"></div>
+        </div>
+      `;
+    } else {
+      el.innerHTML = `<span style="font-size:11px;color:var(--muted)">IndexedDB ✓</span>`;
+    }
+  } catch(e) {
+    el.innerHTML = `<span style="font-size:11px;color:var(--muted)">IndexedDB ✓</span>`;
+  }
+}
+
+function freeUpSpace() {
+  const withScreenshots = trades.filter(t => (t.screenshots && t.screenshots.length) || t.screenshot);
+  if (!withScreenshots.length) { showToast("No screenshots found to remove"); return; }
+
+  const sorted = [...withScreenshots].sort((a,b) => a.date.localeCompare(b.date));
+  const oldestDate = sorted[0].date;
+  const newestDate = sorted[sorted.length-1].date;
+
+  const choice = confirm(
+    `Found ${withScreenshots.length} trades with screenshots.\n\n` +
+    `• OK = Remove screenshots from trades OLDER than 30 days (keeps recent ones)\n` +
+    `• Cancel = Do nothing\n\n` +
+    `Oldest: ${oldestDate} | Newest: ${newestDate}\n\nTrade data (P&L, notes, symbols) is always kept.`
+  );
+  if (!choice) return;
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  const cutoffStr = cutoff.toISOString().slice(0,10);
+
+  let removed = 0;
+  trades = trades.map(t => {
+    if (t.date < cutoffStr && ((t.screenshots && t.screenshots.length) || t.screenshot)) {
+      removed++;
+      return {...t, screenshots: [], screenshot: null};
+    }
+    return t;
+  });
+
+  if (removed === 0) {
+    const confirm2 = confirm(`No trades older than 30 days have screenshots.\n\nRemove ALL ${withScreenshots.length} screenshots instead? (trade data kept)`);
+    if (!confirm2) return;
+    trades = trades.map(t => ({...t, screenshots: [], screenshot: null}));
+    removed = withScreenshots.length;
+  }
+
+  saveTrades().then(() => {
+    showToast(`Freed space: removed screenshots from ${removed} trade(s)`);
+    renderCalendar(); renderTradeList(); renderWatchlistView();
+  });
+}
 
 let today=new Date();
 let currentMonth=today.getMonth();
@@ -1765,7 +1918,7 @@ function directionBadgeHtml(dir){
   return ` <span class="direction-badge ${dir}">${arrow} ${directionLabel(dir)}</span>`;
 }
 
-function saveTrade(){
+async function saveTrade(){
   const sym=(document.getElementById("symbolSelect").value)||(document.getElementById("inputSymbol").value)||"";
   const notes=document.getElementById("inputNotes").value||"";
   const screenshots=getPendingScreenshots();
@@ -1781,7 +1934,7 @@ function saveTrade(){
       trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,notes,screenshots,entryType:"watchlist",watchTag:currentWatchTag,pnl:0,commission:0,lotSize:null,result:null,source:"Self"});
       showToast("Watchlist entry saved 👁");
     }
-    localStorage.setItem("journal",JSON.stringify(trades));
+    await saveTrades();
     renderTradeList();renderCalendar();renderDailySummary();resetInputs();
     return;
   }
@@ -1807,7 +1960,7 @@ function saveTrade(){
     trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,direction:currentDirection,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null});
     showToast("Trade saved");
   }
-  localStorage.setItem("journal",JSON.stringify(trades));
+  await saveTrades();
   renderTradeList();renderCalendar();renderDailySummary();resetInputs();
 }
 
@@ -1866,8 +2019,7 @@ function importJSON(input){
           screenshots:Array.isArray(t.screenshots)?t.screenshots:(t.screenshot?[t.screenshot]:[])
         };
       });
-      localStorage.setItem("journal",JSON.stringify(trades));
-      renderCalendar();renderWatchlistView();showToast("JSON imported");
+      saveTrades().then(()=>{renderCalendar();renderWatchlistView();showToast("JSON imported");});
     }catch(err){alert("Failed to import: "+err.message);}
     finally{input.value="";}
   };
@@ -2010,8 +2162,7 @@ function editTrade(id){
 function deleteTrade(id){
   if(!confirm("Delete this entry?"))return;
   trades=trades.filter(t=>t.id!==id);
-  localStorage.setItem("journal",JSON.stringify(trades));
-  renderTradeList();renderCalendar();renderDailySummary();renderWatchlistView();showToast("Entry deleted");
+  saveTrades().then(()=>{ renderTradeList();renderCalendar();renderDailySummary();renderWatchlistView();showToast("Entry deleted"); });
 }
 
 /* ===== UI helpers ===== */
@@ -3063,7 +3214,12 @@ function handleScreenshot(input){
   if(!toProcess.length){ showToast("Please select image files"); return; }
 
   const totalSize = toProcess.reduce((a,f)=>a+f.size,0);
-  if(totalSize > 10*1024*1024){
+  const usedKB = getStorageUsageKB();
+  const remainingKB = Math.max(0, 5120 - usedKB);
+  const estimatedKB = Math.round(totalSize / 1024 * 0.3); // rough post-compression estimate
+  if(estimatedKB > remainingKB * 0.8){
+    if(!confirm(`⚠️ Storage warning!\n\nEstimated compressed size: ~${(estimatedKB/1024).toFixed(1)}MB\nRemaining space: ~${(remainingKB/1024).toFixed(1)}MB\n\nThis may fill up your storage. Continue?\n\nTip: Use "Free Up Space" to remove old screenshots first.`)) return;
+  } else if(totalSize > 10*1024*1024){
     if(!confirm(`Total size is large (${(totalSize/1024/1024).toFixed(1)}MB). This may use significant localStorage space. Continue?`)) return;
   }
 
@@ -3073,13 +3229,13 @@ function handleScreenshot(input){
     reader.onload = function(e){
       const img = new Image();
       img.onload = function(){
-        const maxW = 1200;
+        const maxW = 900; // reduced from 1200 to save storage space
         let w = img.width, h = img.height;
         if(w > maxW){ h = Math.round(h*(maxW/w)); w = maxW; }
         const canvas = document.createElement("canvas");
         canvas.width = w; canvas.height = h;
         canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-        const compressed = canvas.toDataURL("image/jpeg", 0.75);
+        const compressed = canvas.toDataURL("image/jpeg", 0.6); // reduced from 0.75
         pendingScreenshots.push(compressed);
         processed++;
         if(processed === toProcess.length) renderScreenshotGrid();
@@ -3208,14 +3364,25 @@ function renderWatchlistView(){
 }
 
 /* ===== Init ===== */
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded", async ()=>{
   document.querySelectorAll("#resultBtns .btn.result").forEach(btn=>{
     btn.addEventListener("click",()=>{selectedResult=btn.dataset.result;highlightResult();});
   });
   const pnlEl=document.getElementById("inputPnl");
   if(pnlEl)pnlEl.addEventListener("keypress",(e)=>{if(e.key==="Enter"){e.preventDefault();saveTrade();}});
   document.getElementById("inputSourceType").addEventListener("change",onSourceTypeChange);
-  renderFavoritesDropdown();renderWeekdays();renderCalendar();switchTab("journal");
+
+  // Open IndexedDB, migrate legacy data, then render
+  try {
+    db = await openDB();
+    await migrateFromLocalStorage();
+    trades = await dbGetAll();
+  } catch(e) {
+    console.error("IndexedDB failed, falling back to localStorage:", e);
+    trades = JSON.parse(localStorage.getItem("journal") || "[]");
+  }
+
+  renderFavoritesDropdown();renderWeekdays();renderCalendar();switchTab("journal");updateStorageMeter();
 });
 </script>
 </body>
