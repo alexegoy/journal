@@ -782,6 +782,7 @@
     <div id="tabCharts" class="tab" onclick="switchTab('charts')">Charts</div>
     <div id="tabProp" class="tab" onclick="switchTab('prop')">🏦 Prop Firm</div>
     <div id="tabNews" class="tab" onclick="switchTab('news')">📰 News</div>
+    <div id="tabConverter" class="tab" onclick="switchTab('converter')">💱 PHP</div>
   </div>
 
   <!-- Journal tab -->
@@ -921,6 +922,69 @@
         </div>
       </div>
       <p class="muted" style="margin-top:10px">Live market headlines — geopolitical events, central bank statements, and breaking news that can move markets. Powered by TradingView.</p>
+    </div>
+  </div>
+
+  <!-- USD → PHP Converter tab -->
+  <div id="converterTab" style="display:none">
+    <div style="max-width:420px;margin:32px auto 0;padding:0 8px">
+
+      <div style="text-align:center;margin-bottom:28px">
+        <div style="font-size:22px;font-weight:700;margin-bottom:4px">💱 USD → PHP Converter</div>
+        <div id="converterRateLabel" style="font-size:13px;color:var(--muted)">Fetching live rate…</div>
+      </div>
+
+      <!-- Rate display card -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px 24px;margin-bottom:18px;text-align:center">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Current Rate</div>
+        <div id="converterRateBig" style="font-size:36px;font-weight:800;letter-spacing:-1px">—</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">1 USD = <span id="converterRateSmall">…</span> PHP</div>
+      </div>
+
+      <!-- Input -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px 24px;margin-bottom:18px">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Amount in USD</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px;color:var(--muted);font-weight:600">$</span>
+          <input id="converterInput" type="number" min="0" step="0.01" placeholder="0.00"
+            style="flex:1;background:transparent;border:none;outline:none;font-size:28px;font-weight:700;color:var(--text);width:100%"
+            oninput="convertUSDtoPHP()" />
+        </div>
+        <div style="height:1px;background:var(--border);margin:14px 0"></div>
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Converted to PHP</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px;color:var(--muted);font-weight:600">₱</span>
+          <div id="converterOutput" style="font-size:28px;font-weight:700;color:#3fb950">0.00</div>
+        </div>
+      </div>
+
+      <!-- Quick amounts -->
+      <div style="margin-bottom:18px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">Quick amounts</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="setConverterAmount(10)">$10</button>
+          <button class="btn" onclick="setConverterAmount(25)">$25</button>
+          <button class="btn" onclick="setConverterAmount(50)">$50</button>
+          <button class="btn" onclick="setConverterAmount(100)">$100</button>
+          <button class="btn" onclick="setConverterAmount(500)">$500</button>
+          <button class="btn" onclick="setConverterAmount(1000)">$1,000</button>
+        </div>
+      </div>
+
+      <!-- Today's P&L shortcut -->
+      <div id="converterPnlShortcut" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:18px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Today's Net P&L</div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div id="converterPnlValue" style="font-size:20px;font-weight:700"></div>
+          <button class="btn" onclick="loadTodayPnlToConverter()">Convert this</button>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:8px">
+        <button class="btn" onclick="fetchUSDPHP()" style="font-size:12px">🔄 Refresh rate</button>
+        <div id="converterLastUpdated" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
+      </div>
+
     </div>
   </div>
 
@@ -1444,8 +1508,8 @@ function sundayOfWeekLocal(d){
 
 /* ===== Tabs ===== */
 function switchTab(name){
-  const tabs = ["journal","charts","prop","watchlist","news"];
-  const elIds = { journal:"journalTab", charts:"chartsTab", prop:"propTab", watchlist:"watchlistTab", news:"newsTab" };
+  const tabs = ["journal","charts","prop","watchlist","news","converter"];
+  const elIds = { journal:"journalTab", charts:"chartsTab", prop:"propTab", watchlist:"watchlistTab", news:"newsTab", converter:"converterTab" };
   tabs.forEach(t=>{
     const el = document.getElementById(elIds[t]);
     if(t===name){
@@ -1462,6 +1526,8 @@ function switchTab(name){
   document.getElementById("tabProp").classList.toggle("active",name==="prop");
   document.getElementById("tabWatchlist").classList.toggle("active",name==="watchlist");
   document.getElementById("tabNews").classList.toggle("active",name==="news");
+  document.getElementById("tabConverter").classList.toggle("active",name==="converter");
+  if(name==="converter"){ fetchUSDPHP(); updateConverterPnlShortcut(); }
   if(name==="charts")renderCharts();
   if(name==="watchlist")renderWatchlistView();
   if(name==="news"){
@@ -3359,6 +3425,80 @@ function renderWatchlistView(){
 }
 
 /* ===== Init ===== */
+/* ===== USD → PHP Converter ===== */
+let usdPhpRate = null;
+
+async function fetchUSDPHP(){
+  const label = document.getElementById("converterRateLabel");
+  const big = document.getElementById("converterRateBig");
+  const small = document.getElementById("converterRateSmall");
+  const updated = document.getElementById("converterLastUpdated");
+  if(label) label.textContent = "Fetching live rate…";
+  try {
+    // Try primary source (open.er-api.com — free, open CORS)
+    let rate = null, dateStr = "";
+    try {
+      const res = await fetch("https://open.er-api.com/v6/latest/USD");
+      const data = await res.json();
+      rate = data.rates.PHP;
+      dateStr = data.time_last_update_utc ? new Date(data.time_last_update_utc).toLocaleDateString() : data.time_last_update_utc || "";
+    } catch(e1) {
+      // Fallback: exchangerate-api.com free endpoint
+      const res2 = await fetch("https://api.exchangerate-api.com/v4/latest/USD");
+      const data2 = await res2.json();
+      rate = data2.rates.PHP;
+      dateStr = data2.date || "";
+    }
+    usdPhpRate = rate;
+    if(big) big.textContent = `₱${Number(rate.toFixed(2)).toLocaleString()}`;
+    if(small) small.textContent = rate.toFixed(4);
+    if(label) label.textContent = "Live rate — updated daily";
+    if(updated) updated.textContent = `Last updated: ${dateStr}`;
+    convertUSDtoPHP();
+  } catch(e) {
+    if(label) label.textContent = "⚠️ Could not fetch rate — check connection";
+    if(big) big.textContent = "—";
+  }
+}
+
+function convertUSDtoPHP(){
+  const input = document.getElementById("converterInput");
+  const output = document.getElementById("converterOutput");
+  if(!input || !output) return;
+  const usd = parseFloat(input.value) || 0;
+  if(!usdPhpRate){ output.textContent = "—"; return; }
+  const php = usd * usdPhpRate;
+  output.textContent = "₱" + php.toLocaleString("en-PH", {minimumFractionDigits:2, maximumFractionDigits:2});
+  output.style.color = usd < 0 ? "#f85149" : "#3fb950";
+}
+
+function setConverterAmount(usd){
+  const input = document.getElementById("converterInput");
+  if(input){ input.value = usd; convertUSDtoPHP(); }
+}
+
+function updateConverterPnlShortcut(){
+  if(!selectedDate) return;
+  const shortcut = document.getElementById("converterPnlShortcut");
+  const pnlEl = document.getElementById("converterPnlValue");
+  if(!shortcut || !pnlEl) return;
+  const todayTrades = trades.filter(t => t.date === selectedDate && t.entryType !== "watchlist");
+  if(!todayTrades.length){ shortcut.style.display = "none"; return; }
+  const total = todayTrades.reduce((s,t) => s + netPnl(t), 0);
+  shortcut.style.display = "";
+  pnlEl.textContent = (total >= 0 ? "+$" : "-$") + Math.abs(total).toFixed(2);
+  pnlEl.style.color = total >= 0 ? "#3fb950" : "#f85149";
+}
+
+function loadTodayPnlToConverter(){
+  if(!selectedDate) return;
+  const todayTrades = trades.filter(t => t.date === selectedDate && t.entryType !== "watchlist");
+  const total = todayTrades.reduce((s,t) => s + netPnl(t), 0);
+  const input = document.getElementById("converterInput");
+  if(input){ input.value = total.toFixed(2); convertUSDtoPHP(); }
+}
+
+
 document.addEventListener("DOMContentLoaded", async ()=>{
   document.querySelectorAll("#resultBtns .btn.result").forEach(btn=>{
     btn.addEventListener("click",()=>{selectedResult=btn.dataset.result;highlightResult();});
