@@ -3214,13 +3214,8 @@ function handleScreenshot(input){
   if(!toProcess.length){ showToast("Please select image files"); return; }
 
   const totalSize = toProcess.reduce((a,f)=>a+f.size,0);
-  const usedKB = getStorageUsageKB();
-  const remainingKB = Math.max(0, 5120 - usedKB);
-  const estimatedKB = Math.round(totalSize / 1024 * 0.3); // rough post-compression estimate
-  if(estimatedKB > remainingKB * 0.8){
-    if(!confirm(`⚠️ Storage warning!\n\nEstimated compressed size: ~${(estimatedKB/1024).toFixed(1)}MB\nRemaining space: ~${(remainingKB/1024).toFixed(1)}MB\n\nThis may fill up your storage. Continue?\n\nTip: Use "Free Up Space" to remove old screenshots first.`)) return;
-  } else if(totalSize > 10*1024*1024){
-    if(!confirm(`Total size is large (${(totalSize/1024/1024).toFixed(1)}MB). This may use significant localStorage space. Continue?`)) return;
+  if(totalSize > 20*1024*1024){
+    if(!confirm(`Total size is large (${(totalSize/1024/1024).toFixed(1)}MB). Continue?`)) return;
   }
 
   let processed = 0;
