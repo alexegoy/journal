@@ -972,6 +972,9 @@
     .prop-totals-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 16px; display:flex; gap:16px; flex-wrap:wrap; }
     .prop-total-item { min-width:120px; }
     .active-banner { background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.3); border-radius:var(--radius-sm); padding:14px 16px; font-size:13px; color:#93c5fd; line-height:1.7; }
+
+    /* Prop Firm tab centered layout */
+    .prop-inner { max-width: 720px; margin: 0 auto; }
   </style>
 </head>
 <body>
@@ -1294,6 +1297,7 @@
 
   <!-- Prop Firm tab -->
   <div id="propTab" style="display:none">
+  <div class="prop-inner">
 
     <!-- Hero status card -->
     <div id="propHero" class="prop-hero" style="display:none"></div>
@@ -1403,6 +1407,7 @@
     <!-- Totals -->
     <div id="propTotals" style="margin-top:4px"></div>
 
+  </div><!-- /prop-inner -->
   </div>
 
 </div><!-- /app -->
