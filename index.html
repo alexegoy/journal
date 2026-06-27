@@ -1025,6 +1025,7 @@
     <div class="toolbar">
       <button class="btn" onclick="exportCSV()">⬇ CSV</button>
       <button class="btn" onclick="exportJSON()">⬇ JSON</button>
+      <button class="btn btn-primary" onclick="exportPDF()" title="Download a full PDF report of all trades for this month">📄 Export PDF</button>
       <button class="btn" onclick="document.getElementById('importJson').click()">⬆ Import</button>
       <input id="importJson" type="file" accept="application/json" class="hidden-file" onchange="importJSON(this)" />
       <button class="btn btn-danger" onclick="freeUpSpace()" title="Remove screenshots from older trades to free localStorage space">🗑 Free Up Space</button>
@@ -2369,6 +2370,187 @@ function exportJSON(){
   const a=document.createElement("a");a.href=url;a.download="journal_export.json";a.click();
   URL.revokeObjectURL(url);showToast("JSON exported");
 }
+function exportPDF(){
+  if(!trades||!trades.length){showToast("No trades to export");return;}
+
+  const monthTrades = trades.filter(t => {
+    const d = new Date(t.date+"T00:00:00");
+    return d.getFullYear()===currentYear && d.getMonth()===currentMonth && t.entryType!=="watchlist";
+  }).sort((a,b)=>a.date.localeCompare(b.date));
+
+  if(!monthTrades.length){showToast("No trades this month to export");return;}
+
+  const monthLabel = new Date(currentYear, currentMonth, 1).toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  const totalNet = monthTrades.reduce((s,t)=>s+netPnl(t),0);
+  const totalGross = monthTrades.reduce((s,t)=>s+Number(t.pnl||0),0);
+  const totalComm = monthTrades.reduce((s,t)=>s+Math.abs(Number(t.commission||0)),0);
+  const wins = monthTrades.filter(t=>t.result==="win").length;
+  const losses = monthTrades.filter(t=>t.result==="loss").length;
+  const bes = monthTrades.filter(t=>t.result==="be").length;
+  const winRate = monthTrades.length ? ((wins/monthTrades.length)*100).toFixed(1) : "0.0";
+  const grossWins = monthTrades.filter(t=>t.result==="win").reduce((s,t)=>s+netPnl(t),0);
+  const grossLosses = Math.abs(monthTrades.filter(t=>t.result==="loss").reduce((s,t)=>s+netPnl(t),0));
+  const profitFactor = grossLosses>0?(grossWins/grossLosses).toFixed(2):"∞";
+  const avgWin = wins>0?(grossWins/wins).toFixed(2):"0.00";
+  const avgLoss = losses>0?(-grossLosses/losses).toFixed(2):"0.00";
+  let runningPnl=0, peak=0, maxDD=0;
+  monthTrades.forEach(t=>{runningPnl+=netPnl(t);if(runningPnl>peak)peak=runningPnl;const dd=peak-runningPnl;if(dd>maxDD)maxDD=dd;});
+
+  const fmt = v => (v>=0?"+$":"-$")+Math.abs(v).toFixed(2);
+  const fmtPlain = v => "$"+Math.abs(v).toFixed(2);
+  const netColor = totalNet>=0?"#16a34a":"#dc2626";
+  const resColor = r => r==="win"?"#16a34a":r==="loss"?"#dc2626":"#2563eb";
+  const resLabel = r => r==="win"?"WIN":r==="loss"?"LOSS":"BE";
+  const dirLabel = d => d==="buy"?"BUY / LONG":"SELL / SHORT";
+  const dirColor = d => d==="buy"?"#16a34a":"#dc2626";
+
+  // Group trades by date
+  const byDate = {};
+  monthTrades.forEach(t=>{
+    if(!byDate[t.date])byDate[t.date]=[];
+    byDate[t.date].push(t);
+  });
+
+  let tradeRows = "";
+  let tradeNum = 0;
+  Object.entries(byDate).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([date, dayTrades])=>{
+    const dayNet = dayTrades.reduce((s,t)=>s+netPnl(t),0);
+    const dayColor = dayNet>=0?"#16a34a":"#dc2626";
+    const dateFormatted = new Date(date+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+    tradeRows += `
+      <div style="margin-bottom:24px;page-break-inside:avoid">
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#f1f5f9;border-radius:8px;padding:10px 14px;margin-bottom:10px;border-left:4px solid ${dayColor}">
+          <div style="font-weight:700;font-size:13px;color:#1e293b">${dateFormatted}</div>
+          <div style="font-weight:800;font-size:14px;color:${dayColor}">${fmt(dayNet)} <span style="font-size:11px;font-weight:500;color:#64748b">(${dayTrades.length} trade${dayTrades.length!==1?"s":""})</span></div>
+        </div>`;
+    dayTrades.forEach(t=>{
+      tradeNum++;
+      const net = netPnl(t);
+      const hasSS = (t.screenshots&&t.screenshots.length)||(t.screenshot);
+      const ssArr = t.screenshots&&t.screenshots.length ? t.screenshots : (t.screenshot?[t.screenshot]:[]);
+      const borderColor = t.result==="win"?"#16a34a":t.result==="loss"?"#dc2626":"#3b82f6";
+
+      let screenshotHtml = "";
+      if(ssArr.length){
+        screenshotHtml = `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">`;
+        ssArr.forEach(src=>{
+          screenshotHtml += `<img src="${src}" style="width:100%;max-width:380px;border-radius:6px;border:1px solid #e2e8f0;object-fit:cover" />`;
+        });
+        screenshotHtml += `</div>`;
+      }
+
+      tradeRows += `
+        <div style="border:1px solid #e2e8f0;border-left:4px solid ${borderColor};border-radius:8px;padding:14px;margin-bottom:8px;background:#fff;page-break-inside:avoid">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:16px;font-weight:800;color:#0f172a">#${tradeNum} ${t.symbol}</span>
+              ${t.direction?`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:${t.direction==="buy"?"#dcfce7":"#fee2e2"};color:${dirColor(t.direction)}">${dirLabel(t.direction)}</span>`:""}
+              <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:${t.result==="win"?"#dcfce7":t.result==="loss"?"#fee2e2":"#dbeafe"};color:${resColor(t.result)}">${resLabel(t.result)}</span>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:20px;font-weight:800;color:${net>=0?"#16a34a":"#dc2626"}">${fmt(net)}</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px">Net P&L</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:12px">
+            <div style="background:#f8fafc;border-radius:6px;padding:8px 10px">
+              <div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700">Gross P&L</div>
+              <div style="font-size:13px;font-weight:700;color:${Number(t.pnl||0)>=0?"#16a34a":"#dc2626"};margin-top:2px">${fmt(Number(t.pnl||0))}</div>
+            </div>
+            ${t.commission>0?`<div style="background:#f8fafc;border-radius:6px;padding:8px 10px">
+              <div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700">Commission</div>
+              <div style="font-size:13px;font-weight:700;color:#d97706;margin-top:2px">-${fmtPlain(t.commission)}</div>
+            </div>`:""}
+            ${t.lotSize!=null?`<div style="background:#f8fafc;border-radius:6px;padding:8px 10px">
+              <div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700">Lot Size</div>
+              <div style="font-size:13px;font-weight:700;color:#1e293b;margin-top:2px">${t.lotSize}</div>
+            </div>`:""}
+            ${t.source&&t.source!=="Self"?`<div style="background:#f8fafc;border-radius:6px;padding:8px 10px">
+              <div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:700">Source</div>
+              <div style="font-size:11px;font-weight:600;color:#1e293b;margin-top:2px">${t.source}</div>
+            </div>`:""}
+          </div>
+          ${t.notes?`<div style="margin-top:10px;padding:8px 12px;background:#fefce8;border:1px solid #fef08a;border-radius:6px;font-size:12px;color:#713f12;line-height:1.5"><span style="font-weight:700">📝 Notes: </span>${t.notes}</div>`:""}
+          ${screenshotHtml}
+        </div>`;
+    });
+    tradeRows += `</div>`;
+  });
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Trading Journal — ${monthLabel}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #1e293b; font-size: 13px; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head>
+<body style="padding:32px;max-width:860px;margin:0 auto">
+
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #e2e8f0">
+    <div>
+      <div style="font-size:24px;font-weight:900;letter-spacing:-0.5px;color:#0f172a">📈 Trading Journal</div>
+      <div style="font-size:14px;color:#64748b;margin-top:4px">${monthLabel} · Monthly Report</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:2px">Generated ${new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:32px;font-weight:900;color:${netColor}">${fmt(totalNet)}</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px">Total Net P&L</div>
+    </div>
+  </div>
+
+  <!-- Summary KPIs -->
+  <div style="margin-bottom:28px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:12px">Monthly Summary</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+      ${[
+        ["Trades",monthTrades.length,"#1e293b"],
+        ["Win Rate",winRate+"%","#1e293b"],
+        ["Wins",wins,"#16a34a"],
+        ["Losses",losses,"#dc2626"],
+        ["Break Evens",bes,"#2563eb"],
+        ["Gross P&L",fmt(totalGross),totalGross>=0?"#16a34a":"#dc2626"],
+        ["Commission","-"+fmtPlain(totalComm),"#d97706"],
+        ["Max Drawdown","-"+fmtPlain(maxDD),"#dc2626"],
+        ["Profit Factor",profitFactor,"#1e293b"],
+        ["Avg Win","+"+fmtPlain(parseFloat(avgWin)),"#16a34a"],
+        ["Avg Loss",fmtPlain(Math.abs(parseFloat(avgLoss)))+" loss","#dc2626"],
+      ].map(([label,val,color])=>`
+        <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;border:1px solid #e2e8f0">
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;font-weight:700;margin-bottom:4px">${label}</div>
+          <div style="font-size:16px;font-weight:800;color:${color}">${val}</div>
+        </div>`).join("")}
+    </div>
+  </div>
+
+  <!-- Trade Log -->
+  <div style="margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-bottom:14px">Trade Log — ${monthTrades.length} Trade${monthTrades.length!==1?"s":""}</div>
+    ${tradeRows}
+  </div>
+
+  <!-- Footer -->
+  <div style="border-top:1px solid #e2e8f0;padding-top:14px;margin-top:8px;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8">
+    <span>Trading Journal Pro · ${monthLabel}</span>
+    <span>Exported ${new Date().toLocaleString()}</span>
+  </div>
+
+</body>
+</html>`;
+
+  // Open in new tab and trigger print/save as PDF
+  const win = window.open("","_blank");
+  if(!win){showToast("⚠️ Allow popups to export PDF");return;}
+  win.document.write(html);
+  win.document.close();
+  win.onload = ()=>{ win.focus(); win.print(); };
+  showToast("PDF ready — use Print → Save as PDF");
+}
+
 function importJSON(input){
   const file=input.files&&input.files[0];
   if(!file)return;
