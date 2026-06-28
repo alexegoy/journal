@@ -1186,6 +1186,7 @@
     .dash-prop-no-data { color: var(--muted); font-size: 12px; text-align: center; padding: 20px 0; }
 
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="app">
@@ -2128,7 +2129,7 @@ function switchTab(name){
   if(name==="stats"){ populateStatsSymbolFilter(); renderStats(); }
   if(name==="charts")renderCharts();
   if(name==="watchlist")renderWatchlistView();
-  if(name==="dashboard")renderDashboard();
+  if(name==="dashboard") requestAnimationFrame(() => renderDashboard());
   if(name==="news"){
     const headlinesVisible = document.getElementById("newsHeadlinesPane").style.display !== "none";
     if(headlinesVisible) loadTopStoriesWidget(); else loadEconomicCalendarWidget();
@@ -3147,9 +3148,6 @@ function buildCommissionDrag(){
 }
 
 function renderCharts(){
-  if(typeof Chart==="undefined"){
-    const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/chart.js";s.onload=()=>renderCharts();document.head.appendChild(s);return;
-  }
   const eq=aggregateByDate(),res=buildResultsDist(),hist=buildHist(12),src=buildSrc(12);
   const dirPnl=buildDirectionPnl(),dirWr=buildDirectionWinRate(),wkPnl=buildWeekdayPnl(),commDrag=buildCommissionDrag();
 
@@ -4761,7 +4759,11 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     trades = JSON.parse(localStorage.getItem("journal") || "[]");
   }
 
-  renderFavoritesDropdown();renderWeekdays();renderCalendar();switchTab("dashboard");updateStorageMeter();
+  renderFavoritesDropdown();renderWeekdays();renderCalendar();
+  switchTab("dashboard");
+  updateStorageMeter();
+  // Re-render dashboard after the first paint so canvases have real dimensions
+  requestAnimationFrame(() => requestAnimationFrame(() => renderDashboard()));
 });
 </script>
 </body>
