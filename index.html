@@ -1861,6 +1861,42 @@
     </div>
   </div>
 
+  <!-- CLOSE CYCLE / RECORD PAYOUT modal -->
+  <div class="modal" id="closeCycleModal" aria-hidden="true">
+    <div class="sheet" role="dialog" aria-modal="true" style="max-width:460px">
+      <div class="sheet-header">
+        <h3 id="closeCycleTitle">Close Trading Cycle</h3>
+        <button class="sheet-close" onclick="closeCloseCycleModal()">&times;</button>
+      </div>
+      <input type="hidden" id="closeCycleId" />
+
+      <div id="closeCycleBalGroup" class="field-group">
+        <label class="field-label">Closing Balance ($)</label>
+        <input id="closeCycleBal" type="number" step="0.01" placeholder="e.g. 5320.00" oninput="updateCloseCyclePreview()" />
+      </div>
+      <div id="closeCycleClosedInfo" class="cycle-meta" style="display:none;margin-bottom:14px"></div>
+
+      <div id="closeCyclePreview" style="margin:4px 0 14px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(255,255,255,0.02)"></div>
+
+      <div class="field-row">
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Payout Date <span class="small-muted">(optional)</span></label>
+          <input id="closeCyclePayoutDate" type="date" />
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Payout Amount ($) <span class="small-muted">(optional)</span></label>
+          <input id="closeCyclePayoutAmt" type="number" step="0.01" placeholder="e.g. 432.00" oninput="updateCloseCyclePreview()" />
+        </div>
+      </div>
+      <div class="small-muted" style="margin-top:6px">Leave payout fields blank to keep this cycle marked "payout pending".</div>
+
+      <div style="display:flex;gap:10px;margin-top:18px">
+        <button class="btn" style="flex:1" onclick="closeCloseCycleModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1" id="closeCycleSubmitBtn" onclick="submitCloseCycle()">✔ Close Cycle</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Lightbox -->
   <div class="lightbox" id="lightbox" onclick="closeLightbox()">
     <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
@@ -3530,13 +3566,22 @@ function renderCycleList(){
 
   sorted.forEach((c, idx) => {
     const num = sorted.length - idx;
-    const ongoing = !c.end || c.end >= todayStr;
-    // For ongoing cycles, compute P&L from journal trades within cycle date range
+    // A cycle is still "open" (not finalized) as long as no closing balance has been recorded,
+    // regardless of whether its end date has already passed. This fixes cycles getting stuck
+    // in limbo once the end date passes with no way to close them.
+    const isOpen = c.endBal == null;
+    const pastEnd = !!(c.end && c.end < todayStr);
+    const isActive = isOpen && !pastEnd;          // still trading, within date range (or no end date yet)
+    const awaitingClose = isOpen && pastEnd;        // end date has passed but never closed — needs action
+
+    // Compute P&L: use recorded closing balance if closed, otherwise derive a live estimate
+    // from journal trades (works for both truly-active and awaiting-close cycles).
     let pnl;
     if(c.endBal != null){
       pnl = c.endBal - c.startBal;
-    } else if(ongoing && c.start){
-      const ct = realTrades().filter(t => t.date >= c.start && t.date <= todayStr);
+    } else if(isOpen && c.start){
+      const rangeEnd = pastEnd ? c.end : todayStr;
+      const ct = realTrades().filter(t => t.date >= c.start && t.date <= rangeEnd);
       pnl = ct.reduce((a,t) => a + netPnl(t), 0);
     } else {
       pnl = null;
@@ -3544,28 +3589,35 @@ function renderCycleList(){
     const pnlPct = pnl != null && c.startBal > 0 ? (pnl / c.startBal) * 100 : null;
     const yourCut = pnl != null && pnl > 0 ? pnl * (split / 100) : 0;
 
-    let cardCls = ongoing ? "ongoing-cycle" : (pnl > 0 ? "profit-cycle" : pnl < 0 ? "loss-cycle" : "");
-    let pnlCls  = ongoing ? "ongoing" : (pnl > 0 ? "positive" : pnl < 0 ? "negative" : "");
+    let cardCls = isActive ? "ongoing-cycle" : awaitingClose ? "ongoing-cycle" : (pnl > 0 ? "profit-cycle" : pnl < 0 ? "loss-cycle" : "");
+    let pnlCls  = pnl != null ? (pnl >= 0 ? "positive" : "negative") : "ongoing";
     let pnlText = pnl != null ? (pnl >= 0 ? "+" : "") + "$" + pnl.toFixed(2) : "—";
-    if(ongoing) pnlCls = pnl != null ? (pnl >= 0 ? "positive" : "negative") : "ongoing";
 
-    // trade count for ongoing cycles
-    const cycleTradeCount = ongoing && c.start
-      ? realTrades().filter(t => t.date >= c.start && t.date <= todayStr).length
+    // trade count (for open cycles, based on same range used for the P&L estimate)
+    const cycleTradeCount = isOpen && c.start
+      ? realTrades().filter(t => t.date >= c.start && t.date <= (pastEnd ? c.end : todayStr)).length
       : null;
 
     // days in cycle
     const daysInCycle = c.start && c.end ? Math.round((new Date(c.end+"T00:00:00") - new Date(c.start+"T00:00:00")) / 86400000) + 1 : null;
 
+    // status label next to cycle number
+    let statusLabel = "";
+    if(isActive) statusLabel = ' · <span class="live-dot"></span>Active';
+    else if(awaitingClose) statusLabel = ' · <span class="live-dot" style="background:var(--amber)"></span>Awaiting close';
+
     // payout badge
     let payoutBadge = "";
     if(c.payoutAmt != null && c.payoutAmt > 0){
       payoutBadge = `<span class="cycle-payout-badge">💸 Paid $${Number(c.payoutAmt).toFixed(2)}${c.payoutDate ? " on " + c.payoutDate : ""}</span>`;
-    } else if(!ongoing){
-      payoutBadge = `<span class="cycle-payout-badge cycle-payout-pending">⏳ Payout pending</span>`;
+    } else if(c.endBal != null){
+      // closed, but no payout recorded yet — show what's owed so it's actionable
+      payoutBadge = `<span class="cycle-payout-badge cycle-payout-pending">⏳ Payout pending${yourCut > 0 ? " · $" + yourCut.toFixed(2) + " owed" : ""}</span>`;
+    } else if(awaitingClose){
+      payoutBadge = `<span class="cycle-payout-badge cycle-payout-pending">⚠️ Cycle ended — close it to lock in P&amp;L</span>`;
     }
 
-    // Drawdown bar for ongoing cycles: shows how close to floor
+    // Drawdown bar for open cycles: shows how close to floor
     const cycleFloor = (propSettings.accountSize || c.startBal) * (1 - (propSettings.maxDdPct||10) / 100);
     const cycleCurBal = pnl != null ? c.startBal + pnl : c.startBal;
     const cycleCushion = Math.max(0, cycleCurBal - cycleFloor);
@@ -3579,7 +3631,7 @@ function renderCycleList(){
     div.innerHTML = `
       <div class="cycle-header">
         <div>
-          <div class="cycle-num">Cycle #${num}${ongoing ? ' · <span class="live-dot"></span>Active' : ""}</div>
+          <div class="cycle-num">Cycle #${num}${statusLabel}</div>
           <div class="cycle-dates">${c.start} ${c.end ? "→ " + c.end : "→ present"}</div>
           <div class="cycle-meta">
             Start: $${Number(c.startBal).toFixed(2)}
@@ -3596,20 +3648,28 @@ function renderCycleList(){
           ${pnlPct != null ? `<div class="cycle-meta">${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%</div>` : ""}
         </div>
       </div>
-      ${ongoing ? `<div class="cycle-bar-outer"><div class="cycle-bar-inner" style="width:${cycleFloorPct}%;background:${barColor}"></div></div>` : ""}
+      ${isOpen ? `<div class="cycle-bar-outer"><div class="cycle-bar-inner" style="width:${cycleFloorPct}%;background:${barColor}"></div></div>` : ""}
     `;
 
     // action buttons
     const actions = document.createElement("div");
     actions.className = "cycle-actions";
 
-    if(ongoing){
-      // Quick close button — fills end balance + end date
+    if(isOpen){
+      // Close button is always available while the cycle is open — whether it's still
+      // actively trading or its end date has already passed and it just needs finalizing.
       const closeBtn = document.createElement("button");
       closeBtn.className = "btn btn-primary";
-      closeBtn.textContent = "✔ Close Cycle";
+      closeBtn.textContent = awaitingClose ? "✔ Close Cycle" : "✔ Close Cycle Early";
       closeBtn.onclick = () => openCloseCycleModal(c.id);
       actions.appendChild(closeBtn);
+    } else if(c.payoutAmt == null || c.payoutAmt === 0){
+      // Closed but payout not yet recorded — offer a direct "mark paid" action
+      const payBtn = document.createElement("button");
+      payBtn.className = "btn btn-primary";
+      payBtn.textContent = "💰 Record Payout";
+      payBtn.onclick = () => openCloseCycleModal(c.id);
+      actions.appendChild(payBtn);
     }
 
     const delBtn = document.createElement("button");
@@ -3625,23 +3685,99 @@ function renderCycleList(){
   renderPropTotals();
 }
 
-/* ── Close cycle modal (quick inline) ── */
+/* ── Close cycle / record payout modal ── */
 function openCloseCycleModal(id){
   const c = cycles.find(x => x.id === id);
   if(!c) return;
   const todayStr = formatDateLocal(new Date());
+  const split = propSettings.profitSplit || 80;
 
-  const endBal = prompt(`Close Cycle\n\nEnter closing balance ($):`, c.endBal || "");
-  if(endBal === null) return;
-  const payoutAmt = prompt("Payout amount received ($):\n(Leave blank if not yet paid)", c.payoutAmt || "");
-  const payoutDate = prompt("Payout date (YYYY-MM-DD):\n(Leave blank if not yet paid)", c.payoutDate || "");
+  document.getElementById("closeCycleId").value = id;
+  const balGroup   = document.getElementById("closeCycleBalGroup");
+  const closedInfo = document.getElementById("closeCycleClosedInfo");
+  const balInput   = document.getElementById("closeCycleBal");
+  const title      = document.getElementById("closeCycleTitle");
+  const submitBtn  = document.getElementById("closeCycleSubmitBtn");
 
-  editCycleField(id, "end", todayStr);
-  if(endBal !== "") editCycleField(id, "endBal", endBal);
-  if(payoutAmt !== null && payoutAmt !== "") editCycleField(id, "payoutAmt", payoutAmt);
-  if(payoutDate !== null && payoutDate !== "") editCycleField(id, "payoutDate", payoutDate);
+  if(c.endBal == null){
+    // Not yet closed — ask for the closing balance, prefilled with a live estimate from the journal
+    title.textContent = "Close Trading Cycle";
+    submitBtn.textContent = "✔ Close Cycle";
+    balGroup.style.display = "";
+    closedInfo.style.display = "none";
+    const rangeEnd = (c.end && c.end < todayStr) ? c.end : todayStr;
+    const ct = realTrades().filter(t => t.date >= c.start && t.date <= rangeEnd);
+    const livePnl = ct.reduce((a,t) => a + netPnl(t), 0);
+    balInput.value = (c.startBal + livePnl).toFixed(2);
+  } else {
+    // Already closed — this is just recording/updating the payout
+    title.textContent = "Record Payout";
+    submitBtn.textContent = "💰 Save Payout";
+    balGroup.style.display = "none";
+    closedInfo.style.display = "";
+    const closedPnl = c.endBal - c.startBal;
+    closedInfo.textContent = `Closing balance: $${Number(c.endBal).toFixed(2)} · P&L: ${closedPnl>=0?"+":""}$${closedPnl.toFixed(2)}`;
+    balInput.value = c.endBal;
+  }
 
-  showToast("Cycle closed ✅");
+  document.getElementById("closeCyclePayoutDate").value = c.payoutDate || todayStr;
+  const baseline = c.endBal != null ? c.endBal : parseFloat(balInput.value);
+  const estPnl = baseline - c.startBal;
+  const suggestedCut = estPnl > 0 ? estPnl * (split/100) : 0;
+  document.getElementById("closeCyclePayoutAmt").value = c.payoutAmt != null ? c.payoutAmt : (suggestedCut > 0 ? suggestedCut.toFixed(2) : "");
+
+  updateCloseCyclePreview();
+  document.getElementById("closeCycleModal").classList.add("show");
+}
+
+function updateCloseCyclePreview(){
+  const id = document.getElementById("closeCycleId").value;
+  const c = cycles.find(x => x.id === id);
+  const preview = document.getElementById("closeCyclePreview");
+  if(!c || !preview) return;
+
+  const balVal = document.getElementById("closeCycleBal").value;
+  const endBal = c.endBal != null ? c.endBal : (balVal !== "" ? parseFloat(balVal) : null);
+
+  if(endBal == null || isNaN(endBal)){
+    preview.innerHTML = `<div class="small-muted">Enter a closing balance to see your P&amp;L and cut.</div>`;
+    return;
+  }
+  const split = propSettings.profitSplit || 80;
+  const pnl = endBal - c.startBal;
+  const cut = pnl > 0 ? pnl * (split/100) : 0;
+  preview.innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span class="small-muted">Cycle P&amp;L</span><b style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>=0?"+":""}$${pnl.toFixed(2)}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px"><span class="small-muted">Your cut (${split}%)</span><b style="color:var(--green)">$${cut.toFixed(2)}</b></div>
+  `;
+}
+
+function closeCloseCycleModal(){
+  document.getElementById("closeCycleModal").classList.remove("show");
+}
+
+function submitCloseCycle(){
+  const id = document.getElementById("closeCycleId").value;
+  const c = cycles.find(x => x.id === id);
+  if(!c) return;
+  const todayStr = formatDateLocal(new Date());
+
+  if(c.endBal == null){
+    const balVal = document.getElementById("closeCycleBal").value;
+    if(balVal === "" || isNaN(parseFloat(balVal))){ showToast("Enter a closing balance"); return; }
+    editCycleField(id, "end", (c.end && c.end < todayStr) ? c.end : todayStr);
+    editCycleField(id, "endBal", balVal);
+  }
+
+  const payoutDate = document.getElementById("closeCyclePayoutDate").value;
+  const payoutAmt  = document.getElementById("closeCyclePayoutAmt").value;
+  if(payoutAmt !== ""){
+    editCycleField(id, "payoutAmt", payoutAmt);
+    editCycleField(id, "payoutDate", payoutDate || todayStr);
+  }
+
+  closeCloseCycleModal();
+  showToast("Cycle updated ✅");
 }
 
 /* ── Totals summary ── */
@@ -3676,9 +3812,12 @@ function renderPropDashboard(){
   if(!dash) return;
   dash.innerHTML = "";
 
-  // Use the most recent active (ongoing) cycle's data for the rules tracker
+  // Use the most recent OPEN cycle's data for the rules tracker — "open" means it hasn't
+  // been closed yet (no closing balance recorded), regardless of whether its end date has
+  // already passed. This keeps the dashboard populated for cycles that ended but are
+  // still awaiting close, instead of silently falling back to zeroed-out defaults.
   const todayStr = formatDateLocal(new Date());
-  const activeCycle = [...cycles].sort((a,b)=>(b.start||"").localeCompare(a.start||"")).find(c => !c.end || c.end >= todayStr);
+  const activeCycle = [...cycles].sort((a,b)=>(b.start||"").localeCompare(a.start||"")).find(c => c.endBal == null);
 
   const acct = s.accountSize || 10000;
   const startBal = activeCycle ? activeCycle.startBal : acct;
