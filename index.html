@@ -1266,7 +1266,13 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="light">
+<script>
+  try {
+    var savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") document.body.classList.remove("light");
+  } catch(e) {}
+</script>
 <div class="app">
 
   <!-- Header -->
@@ -1282,7 +1288,7 @@
       <button class="btn cmdk-hint-btn" onclick="openCommandPalette()" title="Quick jump"><span class="num">⌘K</span></button>
       <button class="nav-btn" onclick="prevMonth()">&#9664;</button>
       <button class="nav-btn" onclick="nextMonth()">&#9654;</button>
-      <button class="btn" onclick="toggleDarkMode()" id="themeBtn">☀️</button>
+      <button class="btn" onclick="toggleDarkMode()" id="themeBtn">🌙</button>
     </div>
   </div>
 
@@ -3106,6 +3112,7 @@ function toggleDarkMode(){
   document.body.classList.toggle("light");
   const btn=document.getElementById("themeBtn");
   if(btn) btn.textContent=document.body.classList.contains("light")?"🌙":"☀️";
+  try{ localStorage.setItem("theme", document.body.classList.contains("light")?"light":"dark"); }catch(e){}
   // re-load the economic calendar widget so its theme matches (TradingView bakes theme in at load time)
   if(economicCalendarLoaded){
     economicCalendarLoaded = false;
@@ -5128,6 +5135,8 @@ function renderDashPropStatus() {
 
 
 document.addEventListener("DOMContentLoaded", async ()=>{
+  const themeBtn=document.getElementById("themeBtn");
+  if(themeBtn) themeBtn.textContent=document.body.classList.contains("light")?"🌙":"☀️";
   document.querySelectorAll("#resultBtns .btn.result").forEach(btn=>{
     btn.addEventListener("click",()=>{selectedResult=btn.dataset.result;highlightResult();});
   });
