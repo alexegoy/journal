@@ -1389,6 +1389,53 @@ body[data-scheme="web"]:not(.light) .sheet select option{background:#0d1530;colo
 body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text-shadow:0 1px 10px rgba(0,0,0,.4)}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* ===== Daily trade-limit rule ===== */
+#ruleBanner{display:none;margin:12px 0 4px}
+#ruleBanner.show{display:block}
+.rule-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);font-size:12px;color:var(--text-dim)}
+.rule-strip .rule-dots{display:flex;gap:5px}
+.rule-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--muted)}
+.rule-dot.on{background:var(--green);border-color:var(--green)}
+.rule-strip .rule-count{font-family:var(--font-mono);font-weight:700;color:var(--text)}
+.rule-strip .rule-gear{margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--muted);cursor:pointer;padding:3px 9px;font-size:11px}
+.rule-strip .rule-gear:hover{color:var(--text);border-color:var(--border-strong)}
+.rule-strip.warn{border-color:rgba(224,167,46,.5);background:var(--amber-dim)}
+.rule-strip.warn .rule-dot.on{background:var(--amber);border-color:var(--amber)}
+.rule-alert{border:1px solid rgba(255,93,122,.55);background:linear-gradient(135deg,rgba(255,93,122,.16),rgba(255,93,122,.05));border-radius:var(--radius-sm);padding:14px 16px;animation:ruleIn .35s var(--ease-out)}
+.rule-alert.over{border-color:var(--red);box-shadow:0 0 0 3px rgba(255,93,122,.12)}
+.rule-alert-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rule-alert-title{font-weight:800;font-size:14px;color:var(--red)}
+.rule-alert-count{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--text);padding:2px 8px;border:1px solid var(--border-strong);border-radius:99px}
+.rule-alert .rule-gear{margin-left:auto;background:transparent;border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--muted);cursor:pointer;padding:3px 9px;font-size:11px}
+.rule-quote{margin-top:10px;font-size:14px;line-height:1.5;color:var(--text);font-style:italic}
+.rule-quote-next{margin-top:8px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:0}
+.rule-quote-next:hover{color:var(--text)}
+@keyframes ruleIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+#ruleOverlay{position:fixed;inset:0;z-index:3500;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.66);backdrop-filter:blur(6px)}
+#ruleOverlay.show{display:flex}
+.rule-box{width:100%;max-width:440px;background:var(--card-solid);border:1px solid var(--border-strong);border-radius:var(--radius);padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.5);animation:ruleIn .25s var(--ease-out);color:var(--text)}
+.rule-box h3{font-size:17px;margin-bottom:6px}
+.rule-box .rule-sub{font-size:13px;color:var(--text-dim);line-height:1.5}
+.rule-box .rule-quote{padding:10px 12px;border-left:3px solid var(--red);background:var(--red-dim);border-radius:var(--radius-xs)}
+.rule-box label.rule-check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:12px;color:var(--text-dim);cursor:pointer}
+.rule-box textarea,.rule-box input[type=number]{width:100%;margin-top:10px;padding:9px 10px;border-radius:var(--radius-xs);border:1px solid var(--border-strong);background:var(--bg2);color:var(--text);font-family:inherit;font-size:13px}
+.rule-box textarea{min-height:64px;resize:vertical}
+.rule-actions{display:flex;gap:8px;margin-top:16px}
+.rule-actions .btn{flex:1}
+.rule-actions .btn[disabled]{opacity:.4;cursor:not-allowed}
+.rule-toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-size:13px}
+#ruleInlineWarn{margin-bottom:10px}
+.rule-inline{padding:8px 11px;border-radius:var(--radius-xs);font-size:12px;border:1px solid rgba(224,167,46,.5);background:var(--amber-dim);color:var(--text)}
+.rule-inline.over{border-color:rgba(255,93,122,.55);background:var(--red-dim)}
+.overlimit-badge{display:inline-block;margin-left:6px;padding:1px 6px;font-size:9px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;border-radius:99px;color:var(--red);background:var(--red-dim);border:1px solid rgba(255,93,122,.4)}
+.disc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:8px}
+.disc-card{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);padding:14px}
+.disc-card .disc-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.disc-card .disc-v{font-family:var(--font-mono);font-size:22px;font-weight:700;margin:6px 0 2px}
+.disc-card .disc-s{font-size:12px;color:var(--text-dim);line-height:1.5}
+</style>
 </head>
 <body class="light" data-scheme="rose">
 <script>
@@ -1421,6 +1468,9 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
       <input type="file" id="wallInput" accept="image/*" class="hidden-file" onchange="handleWallpaper(this)" />
     </div>
   </div>
+
+  <!-- Daily trade-limit banner -->
+  <div id="ruleBanner"></div>
 
   <!-- Tabs -->
   <div class="tabs">
@@ -1786,6 +1836,10 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
         </div>
       </div>
 
+      <!-- Discipline -->
+      <div class="ds-section-label">Discipline · Daily Trade Limit</div>
+      <div id="statsDiscipline"></div>
+
       <!-- Empty state -->
       <div id="statsEmpty" style="display:none" class="ds-empty">
         <div class="ds-empty-icon">📭</div>
@@ -2043,6 +2097,7 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
         </div>
       </div>
 
+      <div id="ruleInlineWarn"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <button class="btn btn-primary" style="flex:1" onclick="saveTrade()" id="saveTradeBtn">💾 Save Trade</button>
         <button class="btn" style="flex:1" onclick="closeModal()">Cancel</button>
@@ -2149,6 +2204,8 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
       <div id="cmdkResults" class="cmdk-results"></div>
     </div>
   </div>
+
+  <div id="ruleOverlay" onclick="if(event.target===this)closeRuleModal()"><div class="rule-box" id="ruleBox"></div></div>
 
   <div id="toast"></div>
 
@@ -2872,7 +2929,7 @@ function openModal(date){
   document.getElementById("modalDate").innerText=date;
   document.getElementById("modal").classList.add("show");
   setEntryType("trade");
-  resetInputs();renderTradeList();renderDailySummary();renderFavoritesDropdown();
+  resetInputs();renderTradeList();renderDailySummary();renderFavoritesDropdown();updateRuleInline();
 }
 function closeModal(){document.getElementById("modal").classList.remove("show");}
 
@@ -3018,15 +3075,32 @@ async function saveTrade(){
   const riskAmount=riskVal!==""?Math.abs(parseFloat(riskVal)||0):null;
   const grade=currentGrade||null;
 
+  // Soft daily limit: warn + require a reason, then flag the trade (never blocks)
+  let overLimitReason=null, overLimitFlag=false;
+  const _rule=getTradeRule();
+  if(!editingId && _rule.enabled){
+    const _already=tradesOnDate(selectedDate).length;
+    if(_already>=_rule.max){
+      const ans=await askOverLimit(_already,_rule.max);
+      if(!ans.ok) return;
+      overLimitFlag=true; overLimitReason=ans.reason||"Acknowledged";
+    }
+  }
+
   if(editingId){
     trades=trades.map(t=>t.id===editingId?{...t,symbol:sym,pnl:grossPnl,commission,lotSize,direction:currentDirection,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null,riskAmount,grade}:t);
     showToast("Trade updated");editingId=null;
   } else {
-    trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,direction:currentDirection,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null,riskAmount,grade});
+    trades.push({id:Date.now().toString(),date:selectedDate,symbol:sym,pnl:grossPnl,commission,lotSize,direction:currentDirection,notes,result:selectedResult,source,screenshots,entryType:"trade",watchTag:null,riskAmount,grade,...(overLimitFlag?{overLimit:true,overLimitReason}:{})});
     showToast("Trade saved");
   }
   await saveTrades();
   renderTradeList();renderCalendar();renderDailySummary();resetInputs();
+  updateRuleInline();renderRuleBanner();
+  if(!editingId && _rule.enabled && !overLimitFlag){
+    const _nowCount=tradesOnDate(selectedDate).length;
+    if(_nowCount===_rule.max) showLimitReachedPopup(_nowCount,_rule.max);
+  }
 }
 
 /* ===== Export / Import ===== */
@@ -3123,7 +3197,7 @@ function renderTradeList(){
       const net=netPnl(t);
       const cs=comm>0?` <span class="trade-comm" title="Gross: ${Number(t.pnl)>=0?"+":""}${Number(t.pnl).toFixed(2)}">-${comm.toFixed(2)} comm</span>`:"";
       const ls=t.lotSize!=null&&t.lotSize>0?` <span class="small-muted">| ${t.lotSize} lot</span>`:"";
-      infoDiv.innerHTML=`<div>${t.symbol}${directionBadgeHtml(t.direction)} &bull; ${(t.result||"").toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls}${rBadgeHtml(t)}${gradeBadgeHtml(t.grade)} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:4px">${t.notes||""}</div>`;
+      infoDiv.innerHTML=`<div>${t.symbol}${directionBadgeHtml(t.direction)} &bull; ${(t.result||"").toUpperCase()} &bull; Net: ${net>=0?"+":""}${net.toFixed(2)}${cs}${ls}${rBadgeHtml(t)}${gradeBadgeHtml(t.grade)}${overLimitBadgeHtml(t)} &bull; <span class="small-muted">${t.source||"Self"}</span></div><div class="muted" style="margin-top:4px">${t.notes||""}</div>`;
     }
 
     // thumbnail strip
@@ -4616,10 +4690,11 @@ function dsHero(icon, label, value, sub, colorCls, accentCls){
 
 function renderStats(){
   const t = getStatsFilteredTrades();
+  try{ renderDisciplineStats(t); }catch(e){ console.warn(e); }
   const badge = document.getElementById("statsTradeCount");
   if(badge) badge.textContent = `${t.length} trade${t.length!==1?"s":""} · filtered`;
 
-  const ids = ["statsHero","statsPerformance","statsBreakdown","statsSizing","statsDirection","statsSymbolTable","statsNotable","statsStreaks"];
+  const ids = ["statsHero","statsPerformance","statsBreakdown","statsSizing","statsDirection","statsSymbolTable","statsNotable","statsStreaks","statsDiscipline"];
   const empty = document.getElementById("statsEmpty");
 
   if(!t.length){
@@ -5237,7 +5312,7 @@ function renderDashPropStatus() {
 
   const rt = realTrades();
   const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = localDateStr(now);
   const todayTrades = rt.filter(t => t.date === todayStr);
   const todayPnl = todayTrades.reduce((s, t) => s + netPnl(t), 0);
 
@@ -5285,6 +5360,228 @@ function renderDashPropStatus() {
 }
 
 
+
+const _origRenderCalendar = renderCalendar;
+renderCalendar = function(){ const r=_origRenderCalendar.apply(this,arguments); try{renderRuleBanner();}catch(e){} return r; };
+
+/* ===================================================================
+   DAILY TRADE LIMIT — soft rule (warn + flag, never hard-block)
+   =================================================================== */
+const OVERTRADE_QUOTES = [
+  "Another trade is not another opportunity. It is usually another fee.",
+  "You already took your best setups. What's left is boredom dressed up as strategy.",
+  "The market will be here tomorrow. Your account might not be if you keep forcing it.",
+  "Discipline is doing nothing when nothing is exactly what the plan says.",
+  "Winning day? Protect it. Losing day? Don't chase it. Either way, you're done.",
+  "Revenge trades have a perfect record of making a bad day worse.",
+  "Closing the platform is also a trade decision, and it's the one with no risk.",
+  "Good traders get paid for waiting. Over-traders pay to be impatient.",
+  "Two good trades beat seven mediocre ones, every single time.",
+  "If you need to take this trade, that's exactly the reason not to.",
+  "Your edge lives in your rules. Break them and you're just gambling with extra steps.",
+  "The urge to trade 'just one more' is the market testing your discipline.",
+  "A day without overtrading is a day you can be proud of, regardless of P&L.",
+  "Boredom, FOMO and tilt all want the same thing: another click. Don't give it to them.",
+  "Future you will not thank you for this trade. Future you will thank you for stopping.",
+  "Stepping away is a skill. Practise it today.",
+  "Consistency is built on the trades you skip.",
+  "Protect your capital first. The next A+ setup needs you to still be here for it.",
+  "You set this limit when you were calm. Trust that version of you.",
+  "Tired, annoyed or excited? None of those are a setup."
+];
+
+function localDateStr(d){
+  d = d || new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function getTradeRule(){
+  try{
+    const r = JSON.parse(localStorage.getItem("tradeRule")||"null");
+    if(r && typeof r==="object") return { enabled: r.enabled!==false, max: Math.max(1, parseInt(r.max,10)||2) };
+  }catch(e){}
+  return { enabled:true, max:2 };
+}
+function saveTradeRule(r){ try{ localStorage.setItem("tradeRule", JSON.stringify(r)); }catch(e){} }
+function tradesOnDate(dateStr, excludeId){
+  return realTrades().filter(t => t.date===dateStr && (excludeId==null || t.id!==excludeId));
+}
+function tradeNumberOnDay(t){
+  const day = realTrades().filter(x=>x.date===t.date).sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
+  const i = day.findIndex(x=>x.id===t.id);
+  return i<0 ? day.length : i+1;
+}
+function isOverLimitTrade(t){
+  const r = getTradeRule();
+  return r.enabled && t.entryType!=="watchlist" && tradeNumberOnDay(t) > r.max;
+}
+function overLimitBadgeHtml(t){
+  if(!isOverLimitTrade(t)) return "";
+  const why = t.overLimitReason ? " — "+String(t.overLimitReason).replace(/"/g,"&quot;") : "";
+  return `<span class="overlimit-badge" title="Trade #${tradeNumberOnDay(t)} of the day${why}">over limit</span>`;
+}
+let ruleQuoteIdx = null;
+function pickQuote(next){
+  if(ruleQuoteIdx===null || next){
+    let i; do{ i = Math.floor(Math.random()*OVERTRADE_QUOTES.length); }while(i===ruleQuoteIdx && OVERTRADE_QUOTES.length>1);
+    ruleQuoteIdx = i;
+  }
+  return OVERTRADE_QUOTES[ruleQuoteIdx];
+}
+function nextRuleQuote(){ pickQuote(true); renderRuleBanner(); }
+
+function renderRuleBanner(){
+  const el = document.getElementById("ruleBanner");
+  if(!el) return;
+  const r = getTradeRule();
+  if(!r.enabled){ el.className=""; el.innerHTML=""; return; }
+  const n = tradesOnDate(localDateStr()).length;
+  el.className = "show";
+  if(n >= r.max){
+    const over = n - r.max;
+    el.innerHTML = `<div class="rule-alert ${over>0?"over":""}">
+      <div class="rule-alert-top">
+        <span style="font-size:20px">${over>0?"🚨":"🛑"}</span>
+        <span class="rule-alert-title">${over>0 ? `You're ${over} trade${over>1?"s":""} over your limit` : "Daily limit reached — you're done for today"}</span>
+        <span class="rule-alert-count">${n} / ${r.max}</span>
+        <button class="rule-gear" onclick="openRuleSettings()" title="Trade limit settings">⚙ Rule</button>
+      </div>
+      <div class="rule-quote">“${pickQuote()}”</div>
+      <button class="rule-quote-next" onclick="nextRuleQuote()">↻ another reminder</button>
+    </div>`;
+  } else {
+    let dots=""; for(let i=0;i<r.max;i++) dots += `<span class="rule-dot ${i<n?"on":""}"></span>`;
+    const left = r.max - n;
+    el.innerHTML = `<div class="rule-strip ${left===1?"warn":""}">
+      <span>🎯 Trades today</span>
+      <span class="rule-dots">${r.max<=12?dots:""}</span>
+      <span class="rule-count">${n} / ${r.max}</span>
+      <span>${left} left</span>
+      <button class="rule-gear" onclick="openRuleSettings()" title="Trade limit settings">⚙ Rule</button>
+    </div>`;
+  }
+}
+
+/* ---- overlay helpers ---- */
+function openRuleModal(html){
+  document.getElementById("ruleBox").innerHTML = html;
+  document.getElementById("ruleOverlay").classList.add("show");
+}
+let _ruleResolve = null;
+function closeRuleModal(){
+  document.getElementById("ruleOverlay").classList.remove("show");
+  if(_ruleResolve){ const f=_ruleResolve; _ruleResolve=null; f({ok:false}); }
+}
+function openRuleSettings(){
+  const r = getTradeRule();
+  openRuleModal(`
+    <h3>🎯 Daily trade limit</h3>
+    <div class="rule-sub">A soft rule: you'll get warnings and any extra trades get flagged. Nothing is blocked.</div>
+    <div class="rule-toggle-row"><span>Enable rule</span><input type="checkbox" id="ruleEnabled" ${r.enabled?"checked":""}></div>
+    <label style="display:block;margin-top:14px;font-size:12px;color:var(--text-dim)">Max trades per day</label>
+    <input type="number" id="ruleMax" min="1" max="50" value="${r.max}">
+    <div class="rule-actions">
+      <button class="btn" onclick="closeRuleModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="applyRuleSettings()">Save</button>
+    </div>`);
+}
+function applyRuleSettings(){
+  const enabled = document.getElementById("ruleEnabled").checked;
+  const max = Math.max(1, Math.min(50, parseInt(document.getElementById("ruleMax").value,10)||2));
+  saveTradeRule({enabled,max});
+  document.getElementById("ruleOverlay").classList.remove("show");
+  renderRuleBanner(); updateRuleInline();
+  if(typeof renderStats==="function") try{renderStats();}catch(e){}
+  if(typeof renderTradeList==="function") try{renderTradeList();}catch(e){}
+  showToast("Trade limit: "+(enabled?max+" per day":"off"));
+}
+
+/* ---- shown inside the trade modal ---- */
+function updateRuleInline(){
+  const el = document.getElementById("ruleInlineWarn");
+  if(!el) return;
+  const r = getTradeRule();
+  if(!r.enabled || !selectedDate || currentEntryType==="watchlist"){ el.innerHTML=""; return; }
+  const n = tradesOnDate(selectedDate, editingId).length;
+  if(n >= r.max){
+    el.innerHTML = `<div class="rule-inline over">⚠ ${n}/${r.max} trades already logged for this day. Saving another will be flagged as over-limit.</div>`;
+  } else if(n === r.max-1){
+    el.innerHTML = `<div class="rule-inline">Heads up: this will be trade ${n+1} of ${r.max} — your last one for the day.</div>`;
+  } else el.innerHTML = "";
+}
+
+/* ---- asks before saving a trade past the limit; resolves {ok, reason} ---- */
+function askOverLimit(n, max){
+  return new Promise(resolve=>{
+    _ruleResolve = resolve;
+    openRuleModal(`
+      <h3>🛑 You've hit your limit (${n}/${max})</h3>
+      <div class="rule-sub">Why take another one?</div>
+      <div class="rule-quote" style="margin-top:12px">“${pickQuote(true)}”</div>
+      <textarea id="overReason" placeholder="Reason for this extra trade (optional if you tick the box)…" oninput="syncOverBtn()"></textarea>
+      <label class="rule-check"><input type="checkbox" id="overAck" onchange="syncOverBtn()"> I know I'm breaking my own rule</label>
+      <div class="rule-actions">
+        <button class="btn btn-primary" onclick="cancelOverLimit()">Cancel — I'm done</button>
+        <button class="btn" id="overGoBtn" disabled onclick="confirmOverLimit()">Log it anyway</button>
+      </div>`);
+  });
+}
+function syncOverBtn(){
+  const ok = document.getElementById("overAck").checked || document.getElementById("overReason").value.trim().length>=3;
+  document.getElementById("overGoBtn").disabled = !ok;
+}
+function cancelOverLimit(){ closeRuleModal(); }
+function confirmOverLimit(){
+  const reason = document.getElementById("overReason").value.trim();
+  const f=_ruleResolve; _ruleResolve=null;
+  document.getElementById("ruleOverlay").classList.remove("show");
+  if(f) f({ok:true, reason});
+}
+
+/* ---- popup right after saving the trade that reaches the limit ---- */
+function showLimitReachedPopup(n, max){
+  openRuleModal(`
+    <h3>✅ That's ${n}/${max} — you're done for today</h3>
+    <div class="rule-sub">You hit the daily trade limit you set. Close the platform and review your day.</div>
+    <div class="rule-quote" style="margin-top:12px">“${pickQuote(true)}”</div>
+    <div class="rule-actions"><button class="btn btn-primary" onclick="closeRuleModal()">Got it</button></div>`);
+}
+
+/* ---- Stats: followed the rule vs broke it ---- */
+function renderDisciplineStats(list){
+  const el = document.getElementById("statsDiscipline");
+  if(!el) return;
+  const r = getTradeRule();
+  if(!r.enabled){ el.innerHTML = `<div class="small-muted" style="padding:6px 2px">Trade-limit rule is off. Turn it on from the ⚙ Rule button to track discipline.</div>`; return; }
+  const byDay = {};
+  list.filter(t=>t.entryType!=="watchlist").forEach(t=>{ (byDay[t.date]=byDay[t.date]||[]).push(t); });
+  const ok={days:0,net:0}, bad={days:0,net:0}, extra={n:0,net:0,wins:0};
+  Object.values(byDay).forEach(arr=>{
+    arr.sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
+    const net = arr.reduce((s,t)=>s+netPnl(t),0);
+    if(arr.length<=r.max){ ok.days++; ok.net+=net; }
+    else{
+      bad.days++; bad.net+=net;
+      arr.slice(r.max).forEach(t=>{ extra.n++; extra.net+=netPnl(t); if(t.result==="win") extra.wins++; });
+    }
+  });
+  if(!ok.days && !bad.days){ el.innerHTML=""; return; }
+  const fmt = v => (v>=0?"+":"-")+"$"+Math.abs(v).toFixed(2);
+  const col = v => v>0?"var(--green)":v<0?"var(--red)":"var(--text)";
+  const avg = (o)=> o.days ? o.net/o.days : 0;
+  el.innerHTML = `<div class="disc-grid">
+    <div class="disc-card"><div class="disc-h">Days within limit (≤ ${r.max})</div>
+      <div class="disc-v" style="color:${col(ok.net)}">${fmt(ok.net)}</div>
+      <div class="disc-s">${ok.days} day${ok.days!==1?"s":""} · avg ${fmt(avg(ok))}/day</div></div>
+    <div class="disc-card"><div class="disc-h">Days over limit (> ${r.max})</div>
+      <div class="disc-v" style="color:${col(bad.net)}">${fmt(bad.net)}</div>
+      <div class="disc-s">${bad.days} day${bad.days!==1?"s":""} · avg ${fmt(avg(bad))}/day</div></div>
+    <div class="disc-card"><div class="disc-h">The extra trades themselves</div>
+      <div class="disc-v" style="color:${col(extra.net)}">${fmt(extra.net)}</div>
+      <div class="disc-s">${extra.n} trade${extra.n!==1?"s":""} past the limit${extra.n?` · ${Math.round(extra.wins/extra.n*100)}% win rate`:""}</div></div>
+  </div>
+  <div class="small-muted" style="margin:2px 2px 8px">Based on your current limit of ${r.max}/day. The extra trades are the ones taken after trade #${r.max} each day.</div>`;
+}
+
 document.addEventListener("DOMContentLoaded", async ()=>{
   const themeBtn=document.getElementById("themeBtn");
   if(themeBtn) themeBtn.textContent=document.body.classList.contains("light")?"🌙":"☀️";
@@ -5306,6 +5603,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   }
 
   renderFavoritesDropdown();renderWeekdays();renderCalendar();
+  renderRuleBanner();
+  setInterval(renderRuleBanner, 60000); // picks up midnight rollover
   switchTab("dashboard");
   updateStorageMeter();
   // Re-render dashboard after the first paint so canvases have real dimensions
