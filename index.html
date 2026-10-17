@@ -1837,7 +1837,7 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
       </div>
 
       <!-- Discipline -->
-      <div class="ds-section-label">Discipline · Daily Trade Limit</div>
+      <div class="ds-section-label">Discipline · Trading Rules</div>
       <div id="statsDiscipline"></div>
 
       <!-- Empty state -->
@@ -3075,16 +3075,13 @@ async function saveTrade(){
   const riskAmount=riskVal!==""?Math.abs(parseFloat(riskVal)||0):null;
   const grade=currentGrade||null;
 
-  // Soft daily limit: warn + require a reason, then flag the trade (never blocks)
+  // Soft rules (max trades/day, stop after X losses): warn + require a reason, then flag (never blocks)
   let overLimitReason=null, overLimitFlag=false;
-  const _rule=getTradeRule();
-  if(!editingId && _rule.enabled){
-    const _already=tradesOnDate(selectedDate).length;
-    if(_already>=_rule.max){
-      const ans=await askOverLimit(_already,_rule.max);
-      if(!ans.ok) return;
-      overLimitFlag=true; overLimitReason=ans.reason||"Acknowledged";
-    }
+  const _before=dayState(selectedDate);
+  if(!editingId && (_before.countHit || _before.lossHit)){
+    const ans=await askOverLimit(_before);
+    if(!ans.ok) return;
+    overLimitFlag=true; overLimitReason=ans.reason||"Acknowledged";
   }
 
   if(editingId){
@@ -3097,10 +3094,7 @@ async function saveTrade(){
   await saveTrades();
   renderTradeList();renderCalendar();renderDailySummary();resetInputs();
   updateRuleInline();renderRuleBanner();
-  if(!editingId && _rule.enabled && !overLimitFlag){
-    const _nowCount=tradesOnDate(selectedDate).length;
-    if(_nowCount===_rule.max) showLimitReachedPopup(_nowCount,_rule.max);
-  }
+  if(!overLimitFlag && !editingId) showRuleReachedPopup(_before, dayState(selectedDate));
 }
 
 /* ===== Export / Import ===== */
@@ -5365,7 +5359,8 @@ const _origRenderCalendar = renderCalendar;
 renderCalendar = function(){ const r=_origRenderCalendar.apply(this,arguments); try{renderRuleBanner();}catch(e){} return r; };
 
 /* ===================================================================
-   DAILY TRADE LIMIT — soft rule (warn + flag, never hard-block)
+   TRADING RULES — soft rules (warn + flag, never hard-block)
+   1) Max trades per day   2) Stop after X losses in a row (per day)
    =================================================================== */
 const OVERTRADE_QUOTES = [
   "Another trade is not another opportunity. It is usually another fee.",
@@ -5389,76 +5384,149 @@ const OVERTRADE_QUOTES = [
   "You set this limit when you were calm. Trust that version of you.",
   "Tired, annoyed or excited? None of those are a setup."
 ];
+const LOSS_QUOTES = [
+  "A losing streak is information, not an invitation to make it back.",
+  "Tilt feels like conviction. It isn't.",
+  "The trade right after a loss is the most expensive one you'll take all day.",
+  "You can't think your way out of a bad streak while staring at the chart. Walk away.",
+  "Losses are part of the business. Chasing them is a choice.",
+  "Your next trade is being placed by your emotions, not your plan. Step back.",
+  "The best response to back-to-back losses is a glass of water and a closed platform.",
+  "Protect the account now; the strategy can be reviewed tomorrow with a clear head.",
+  "Every revenge trade starts with 'this one will make it back'.",
+  "Stopping after a losing streak is not weakness. It's risk management.",
+  "A bad run followed by a rule-break is how small losses become big ones.",
+  "Pause. Review. Come back when the next trade would be taken for the right reasons.",
+  "Your edge needs a sample size, not a single frantic afternoon.",
+  "Cut the day short and the damage stays small."
+];
 
 function localDateStr(d){
   d = d || new Date();
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
 function getTradeRule(){
-  try{
-    const r = JSON.parse(localStorage.getItem("tradeRule")||"null");
-    if(r && typeof r==="object") return { enabled: r.enabled!==false, max: Math.max(1, parseInt(r.max,10)||2) };
-  }catch(e){}
-  return { enabled:true, max:2 };
+  let r=null;
+  try{ r = JSON.parse(localStorage.getItem("tradeRule")||"null"); }catch(e){}
+  r = (r && typeof r==="object") ? r : {};
+  return {
+    enabled: r.enabled!==false,
+    max: Math.max(1, parseInt(r.max,10)||2),
+    lossEnabled: r.lossEnabled!==false,
+    lossMax: Math.max(1, parseInt(r.lossMax,10)||2)
+  };
 }
 function saveTradeRule(r){ try{ localStorage.setItem("tradeRule", JSON.stringify(r)); }catch(e){} }
+function _byId(a,b){ return (Number(a.id)||0)-(Number(b.id)||0); }
 function tradesOnDate(dateStr, excludeId){
   return realTrades().filter(t => t.date===dateStr && (excludeId==null || t.id!==excludeId));
 }
-function tradeNumberOnDay(t){
-  const day = realTrades().filter(x=>x.date===t.date).sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
-  const i = day.findIndex(x=>x.id===t.id);
-  return i<0 ? day.length : i+1;
-}
-function isOverLimitTrade(t){
+// Loss streak for a day: a win resets it, break-even neither adds nor resets.
+function dayState(dateStr, excludeId){
   const r = getTradeRule();
-  return r.enabled && t.entryType!=="watchlist" && tradeNumberOnDay(t) > r.max;
+  const day = tradesOnDate(dateStr, excludeId).sort(_byId);
+  let streak = 0;
+  day.forEach(t=>{ if(t.result==="loss") streak++; else if(t.result==="win") streak=0; });
+  return { r, n:day.length, streak,
+           countHit: r.enabled && day.length>=r.max,
+           lossHit:  r.lossEnabled && streak>=r.lossMax };
 }
+// Which trades in a list of trades were taken past a rule? -> {id:{overCount, afterLosses}}
+function ruleFlags(list){
+  const r = getTradeRule(), out = {}, byDay = {};
+  list.filter(t=>t.entryType!=="watchlist").forEach(t=>{ (byDay[t.date]=byDay[t.date]||[]).push(t); });
+  Object.values(byDay).forEach(arr=>{
+    arr.sort(_byId);
+    let streak = 0;
+    arr.forEach((t,i)=>{
+      out[t.id] = { overCount: r.enabled && i>=r.max, afterLosses: r.lossEnabled && streak>=r.lossMax };
+      if(t.result==="loss") streak++; else if(t.result==="win") streak=0;
+    });
+  });
+  return out;
+}
+function tradeFlagsFor(t){
+  if(t.entryType==="watchlist") return {overCount:false, afterLosses:false};
+  const f = ruleFlags(realTrades().filter(x=>x.date===t.date))[t.id];
+  return f || {overCount:false, afterLosses:false};
+}
+function isOverLimitTrade(t){ const f=tradeFlagsFor(t); return f.overCount||f.afterLosses; }
 function overLimitBadgeHtml(t){
-  if(!isOverLimitTrade(t)) return "";
+  const f = tradeFlagsFor(t);
+  if(!f.overCount && !f.afterLosses) return "";
+  const r = getTradeRule();
   const why = t.overLimitReason ? " — "+String(t.overLimitReason).replace(/"/g,"&quot;") : "";
-  return `<span class="overlimit-badge" title="Trade #${tradeNumberOnDay(t)} of the day${why}">over limit</span>`;
+  let h = "";
+  if(f.overCount) h += `<span class="overlimit-badge" title="Past your ${r.max}-trade daily limit${why}">over limit</span>`;
+  if(f.afterLosses) h += `<span class="overlimit-badge" title="Taken after ${r.lossMax} losses in a row${why}">after ${r.lossMax} losses</span>`;
+  return h;
 }
-let ruleQuoteIdx = null;
-function pickQuote(next){
-  if(ruleQuoteIdx===null || next){
-    let i; do{ i = Math.floor(Math.random()*OVERTRADE_QUOTES.length); }while(i===ruleQuoteIdx && OVERTRADE_QUOTES.length>1);
-    ruleQuoteIdx = i;
+
+const _quoteIdx = { trade:null, loss:null };
+function pickQuote(next, kind){
+  kind = kind==="loss" ? "loss" : "trade";
+  const pool = kind==="loss" ? LOSS_QUOTES : OVERTRADE_QUOTES;
+  if(_quoteIdx[kind]===null || next){
+    let i; do{ i = Math.floor(Math.random()*pool.length); }while(i===_quoteIdx[kind] && pool.length>1);
+    _quoteIdx[kind] = i;
   }
-  return OVERTRADE_QUOTES[ruleQuoteIdx];
+  return pool[_quoteIdx[kind]];
 }
-function nextRuleQuote(){ pickQuote(true); renderRuleBanner(); }
+let _bannerQuoteKind = "trade";
+function nextRuleQuote(){ pickQuote(true,_bannerQuoteKind); renderRuleBanner(); }
+
+function ruleReasonText(st){
+  const bits=[];
+  if(st.countHit) bits.push(`${st.n}/${st.r.max} trades already taken`);
+  if(st.lossHit) bits.push(`${st.streak} loss${st.streak>1?"es":""} in a row`);
+  return bits.join(" and ");
+}
 
 function renderRuleBanner(){
   const el = document.getElementById("ruleBanner");
   if(!el) return;
-  const r = getTradeRule();
-  if(!r.enabled){ el.className=""; el.innerHTML=""; return; }
-  const n = tradesOnDate(localDateStr()).length;
+  const st = dayState(localDateStr());
+  const r = st.r;
+  if(!r.enabled && !r.lossEnabled){ el.className=""; el.innerHTML=""; return; }
   el.className = "show";
-  if(n >= r.max){
-    const over = n - r.max;
-    el.innerHTML = `<div class="rule-alert ${over>0?"over":""}">
+
+  if(st.countHit || st.lossHit){
+    const flags = ruleFlags(tradesOnDate(localDateStr()));
+    const afterCount = Object.values(flags).filter(f=>f.overCount||f.afterLosses).length;
+    _bannerQuoteKind = (st.lossHit && !st.countHit) ? "loss" : "trade";
+    let title, icon = "🛑";
+    if(afterCount>0){ icon="🚨"; title = `You've taken ${afterCount} trade${afterCount>1?"s":""} after your stop rule`; }
+    else if(st.countHit && st.lossHit) title = `Stop trading — ${r.max} trades done and ${st.streak} losses in a row`;
+    else if(st.lossHit) title = `${st.streak} losses in a row — step away from the screen`;
+    else title = "Daily limit reached — you're done for today";
+    const chips = [];
+    if(r.enabled) chips.push(`<span class="rule-alert-count">${st.n} / ${r.max} trades</span>`);
+    if(r.lossEnabled) chips.push(`<span class="rule-alert-count">${st.streak} / ${r.lossMax} losses in a row</span>`);
+    el.innerHTML = `<div class="rule-alert ${afterCount>0?"over":""}">
       <div class="rule-alert-top">
-        <span style="font-size:20px">${over>0?"🚨":"🛑"}</span>
-        <span class="rule-alert-title">${over>0 ? `You're ${over} trade${over>1?"s":""} over your limit` : "Daily limit reached — you're done for today"}</span>
-        <span class="rule-alert-count">${n} / ${r.max}</span>
-        <button class="rule-gear" onclick="openRuleSettings()" title="Trade limit settings">⚙ Rule</button>
+        <span style="font-size:20px">${icon}</span>
+        <span class="rule-alert-title">${title}</span>
+        ${chips.join("")}
+        <button class="rule-gear" onclick="openRuleSettings()" title="Trading rules">⚙ Rules</button>
       </div>
-      <div class="rule-quote">“${pickQuote()}”</div>
+      <div class="rule-quote">“${pickQuote(false,_bannerQuoteKind)}”</div>
       <button class="rule-quote-next" onclick="nextRuleQuote()">↻ another reminder</button>
     </div>`;
-  } else {
-    let dots=""; for(let i=0;i<r.max;i++) dots += `<span class="rule-dot ${i<n?"on":""}"></span>`;
-    const left = r.max - n;
-    el.innerHTML = `<div class="rule-strip ${left===1?"warn":""}">
-      <span>🎯 Trades today</span>
-      <span class="rule-dots">${r.max<=12?dots:""}</span>
-      <span class="rule-count">${n} / ${r.max}</span>
-      <span>${left} left</span>
-      <button class="rule-gear" onclick="openRuleSettings()" title="Trade limit settings">⚙ Rule</button>
-    </div>`;
+    return;
   }
+
+  let parts = "", warn = false;
+  if(r.enabled){
+    let dots=""; for(let i=0;i<r.max;i++) dots += `<span class="rule-dot ${i<st.n?"on":""}"></span>`;
+    const left = r.max - st.n;
+    if(left===1) warn = true;
+    parts += `<span>🎯 Trades today</span><span class="rule-dots">${r.max<=12?dots:""}</span><span class="rule-count">${st.n} / ${r.max}</span><span>${left} left</span>`;
+  }
+  if(r.lossEnabled){
+    if(st.streak>0 && st.streak===r.lossMax-1) warn = true;
+    parts += `<span style="margin-left:${r.enabled?"8":"0"}px">📉 Loss streak</span><span class="rule-count">${st.streak} / ${r.lossMax}</span>`;
+  }
+  el.innerHTML = `<div class="rule-strip ${warn?"warn":""}">${parts}<button class="rule-gear" onclick="openRuleSettings()" title="Trading rules">⚙ Rules</button></div>`;
 }
 
 /* ---- overlay helpers ---- */
@@ -5474,49 +5542,57 @@ function closeRuleModal(){
 function openRuleSettings(){
   const r = getTradeRule();
   openRuleModal(`
-    <h3>🎯 Daily trade limit</h3>
-    <div class="rule-sub">A soft rule: you'll get warnings and any extra trades get flagged. Nothing is blocked.</div>
-    <div class="rule-toggle-row"><span>Enable rule</span><input type="checkbox" id="ruleEnabled" ${r.enabled?"checked":""}></div>
-    <label style="display:block;margin-top:14px;font-size:12px;color:var(--text-dim)">Max trades per day</label>
+    <h3>🎯 Trading rules</h3>
+    <div class="rule-sub">Soft rules: you'll get warnings and extra trades get flagged. Nothing is ever blocked.</div>
+    <div class="rule-toggle-row"><span><b>Max trades per day</b></span><input type="checkbox" id="ruleEnabled" ${r.enabled?"checked":""}></div>
     <input type="number" id="ruleMax" min="1" max="50" value="${r.max}">
+    <div class="rule-toggle-row" style="margin-top:20px"><span><b>Stop after losses in a row</b></span><input type="checkbox" id="ruleLossEnabled" ${r.lossEnabled?"checked":""}></div>
+    <input type="number" id="ruleLossMax" min="1" max="20" value="${r.lossMax}">
+    <div class="rule-sub" style="margin-top:8px;font-size:11px">The streak resets each day and after any win. Break-even trades don't count either way.</div>
     <div class="rule-actions">
       <button class="btn" onclick="closeRuleModal()">Cancel</button>
       <button class="btn btn-primary" onclick="applyRuleSettings()">Save</button>
     </div>`);
 }
 function applyRuleSettings(){
-  const enabled = document.getElementById("ruleEnabled").checked;
-  const max = Math.max(1, Math.min(50, parseInt(document.getElementById("ruleMax").value,10)||2));
-  saveTradeRule({enabled,max});
+  const r = {
+    enabled: document.getElementById("ruleEnabled").checked,
+    max: Math.max(1, Math.min(50, parseInt(document.getElementById("ruleMax").value,10)||2)),
+    lossEnabled: document.getElementById("ruleLossEnabled").checked,
+    lossMax: Math.max(1, Math.min(20, parseInt(document.getElementById("ruleLossMax").value,10)||2))
+  };
+  saveTradeRule(r);
   document.getElementById("ruleOverlay").classList.remove("show");
   renderRuleBanner(); updateRuleInline();
   if(typeof renderStats==="function") try{renderStats();}catch(e){}
   if(typeof renderTradeList==="function") try{renderTradeList();}catch(e){}
-  showToast("Trade limit: "+(enabled?max+" per day":"off"));
+  showToast("Rules saved");
 }
 
 /* ---- shown inside the trade modal ---- */
 function updateRuleInline(){
   const el = document.getElementById("ruleInlineWarn");
   if(!el) return;
-  const r = getTradeRule();
-  if(!r.enabled || !selectedDate || currentEntryType==="watchlist"){ el.innerHTML=""; return; }
-  const n = tradesOnDate(selectedDate, editingId).length;
-  if(n >= r.max){
-    el.innerHTML = `<div class="rule-inline over">⚠ ${n}/${r.max} trades already logged for this day. Saving another will be flagged as over-limit.</div>`;
-  } else if(n === r.max-1){
-    el.innerHTML = `<div class="rule-inline">Heads up: this will be trade ${n+1} of ${r.max} — your last one for the day.</div>`;
+  if(!selectedDate || currentEntryType==="watchlist"){ el.innerHTML=""; return; }
+  const st = dayState(selectedDate, editingId), r = st.r;
+  if(st.countHit || st.lossHit){
+    el.innerHTML = `<div class="rule-inline over">⚠ ${ruleReasonText(st)} for this day. Saving another will be flagged.</div>`;
+  } else if(r.enabled && st.n===r.max-1){
+    el.innerHTML = `<div class="rule-inline">Heads up: this will be trade ${st.n+1} of ${r.max} — your last one for the day.</div>`;
+  } else if(r.lossEnabled && st.streak>0 && st.streak===r.lossMax-1){
+    el.innerHTML = `<div class="rule-inline">${st.streak} loss${st.streak>1?"es":""} in a row. One more loss hits your stop rule.</div>`;
   } else el.innerHTML = "";
 }
 
-/* ---- asks before saving a trade past the limit; resolves {ok, reason} ---- */
-function askOverLimit(n, max){
+/* ---- asks before saving a trade past a rule; resolves {ok, reason} ---- */
+function askOverLimit(st){
+  const kind = (st.lossHit && !st.countHit) ? "loss" : "trade";
   return new Promise(resolve=>{
     _ruleResolve = resolve;
     openRuleModal(`
-      <h3>🛑 You've hit your limit (${n}/${max})</h3>
-      <div class="rule-sub">Why take another one?</div>
-      <div class="rule-quote" style="margin-top:12px">“${pickQuote(true)}”</div>
+      <h3>🛑 Your stop rule is active</h3>
+      <div class="rule-sub">${ruleReasonText(st)}. Why take another one?</div>
+      <div class="rule-quote" style="margin-top:12px">“${pickQuote(true,kind)}”</div>
       <textarea id="overReason" placeholder="Reason for this extra trade (optional if you tick the box)…" oninput="syncOverBtn()"></textarea>
       <label class="rule-check"><input type="checkbox" id="overAck" onchange="syncOverBtn()"> I know I'm breaking my own rule</label>
       <div class="rule-actions">
@@ -5537,49 +5613,66 @@ function confirmOverLimit(){
   if(f) f({ok:true, reason});
 }
 
-/* ---- popup right after saving the trade that reaches the limit ---- */
-function showLimitReachedPopup(n, max){
+/* ---- popup right after saving the trade that reaches a rule ---- */
+function showRuleReachedPopup(before, after){
+  const newCount = after.countHit && !before.countHit;
+  const newLoss  = after.lossHit && !before.lossHit;
+  if(!newCount && !newLoss) return;
+  const kind = (newLoss && !newCount) ? "loss" : "trade";
+  let title, sub;
+  if(newCount && newLoss){ title=`✅ ${after.n}/${after.r.max} trades and ${after.streak} losses in a row`; sub="Both of your stop rules just triggered. Close the platform and review your day."; }
+  else if(newCount){ title=`✅ That's ${after.n}/${after.r.max} — you're done for today`; sub="You hit the daily trade limit you set. Close the platform and review your day."; }
+  else { title=`🛑 ${after.streak} losses in a row — time to stop`; sub="You hit your loss-streak rule. Step away, review the trades, and come back fresh tomorrow."; }
   openRuleModal(`
-    <h3>✅ That's ${n}/${max} — you're done for today</h3>
-    <div class="rule-sub">You hit the daily trade limit you set. Close the platform and review your day.</div>
-    <div class="rule-quote" style="margin-top:12px">“${pickQuote(true)}”</div>
+    <h3>${title}</h3>
+    <div class="rule-sub">${sub}</div>
+    <div class="rule-quote" style="margin-top:12px">“${pickQuote(true,kind)}”</div>
     <div class="rule-actions"><button class="btn btn-primary" onclick="closeRuleModal()">Got it</button></div>`);
 }
 
-/* ---- Stats: followed the rule vs broke it ---- */
+/* ---- Stats: followed the rules vs broke them ---- */
 function renderDisciplineStats(list){
   const el = document.getElementById("statsDiscipline");
   if(!el) return;
   const r = getTradeRule();
-  if(!r.enabled){ el.innerHTML = `<div class="small-muted" style="padding:6px 2px">Trade-limit rule is off. Turn it on from the ⚙ Rule button to track discipline.</div>`; return; }
-  const byDay = {};
-  list.filter(t=>t.entryType!=="watchlist").forEach(t=>{ (byDay[t.date]=byDay[t.date]||[]).push(t); });
-  const ok={days:0,net:0}, bad={days:0,net:0}, extra={n:0,net:0,wins:0};
-  Object.values(byDay).forEach(arr=>{
-    arr.sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
-    const net = arr.reduce((s,t)=>s+netPnl(t),0);
-    if(arr.length<=r.max){ ok.days++; ok.net+=net; }
-    else{
-      bad.days++; bad.net+=net;
-      arr.slice(r.max).forEach(t=>{ extra.n++; extra.net+=netPnl(t); if(t.result==="win") extra.wins++; });
-    }
-  });
-  if(!ok.days && !bad.days){ el.innerHTML=""; return; }
+  if(!r.enabled && !r.lossEnabled){ el.innerHTML = `<div class="small-muted" style="padding:6px 2px">Trading rules are off. Turn them on from the ⚙ Rules button to track discipline.</div>`; return; }
+  const real = list.filter(t=>t.entryType!=="watchlist");
+  const flags = ruleFlags(real);
   const fmt = v => (v>=0?"+":"-")+"$"+Math.abs(v).toFixed(2);
   const col = v => v>0?"var(--green)":v<0?"var(--red)":"var(--text)";
-  const avg = (o)=> o.days ? o.net/o.days : 0;
-  el.innerHTML = `<div class="disc-grid">
-    <div class="disc-card"><div class="disc-h">Days within limit (≤ ${r.max})</div>
+  const agg = arr => ({ n:arr.length, net:arr.reduce((s,t)=>s+netPnl(t),0), wins:arr.filter(t=>t.result==="win").length });
+  let cards = "", notes = [];
+
+  if(r.enabled){
+    const byDay = {}; real.forEach(t=>{ (byDay[t.date]=byDay[t.date]||[]).push(t); });
+    const ok={days:0,net:0}, bad={days:0,net:0};
+    Object.values(byDay).forEach(arr=>{
+      const net = arr.reduce((s,t)=>s+netPnl(t),0);
+      if(arr.length<=r.max){ ok.days++; ok.net+=net; } else { bad.days++; bad.net+=net; }
+    });
+    const extra = agg(real.filter(t=>flags[t.id] && flags[t.id].overCount));
+    const avg = o => o.days ? o.net/o.days : 0;
+    cards += `<div class="disc-card"><div class="disc-h">Days within limit (≤ ${r.max})</div>
       <div class="disc-v" style="color:${col(ok.net)}">${fmt(ok.net)}</div>
       <div class="disc-s">${ok.days} day${ok.days!==1?"s":""} · avg ${fmt(avg(ok))}/day</div></div>
     <div class="disc-card"><div class="disc-h">Days over limit (> ${r.max})</div>
       <div class="disc-v" style="color:${col(bad.net)}">${fmt(bad.net)}</div>
       <div class="disc-s">${bad.days} day${bad.days!==1?"s":""} · avg ${fmt(avg(bad))}/day</div></div>
-    <div class="disc-card"><div class="disc-h">The extra trades themselves</div>
+    <div class="disc-card"><div class="disc-h">Trades past the daily limit</div>
       <div class="disc-v" style="color:${col(extra.net)}">${fmt(extra.net)}</div>
-      <div class="disc-s">${extra.n} trade${extra.n!==1?"s":""} past the limit${extra.n?` · ${Math.round(extra.wins/extra.n*100)}% win rate`:""}</div></div>
-  </div>
-  <div class="small-muted" style="margin:2px 2px 8px">Based on your current limit of ${r.max}/day. The extra trades are the ones taken after trade #${r.max} each day.</div>`;
+      <div class="disc-s">${extra.n} trade${extra.n!==1?"s":""}${extra.n?` · ${Math.round(extra.wins/extra.n*100)}% win rate`:""}</div></div>`;
+    notes.push(`daily limit of ${r.max} trades`);
+  }
+  if(r.lossEnabled){
+    const after = agg(real.filter(t=>flags[t.id] && flags[t.id].afterLosses));
+    cards += `<div class="disc-card"><div class="disc-h">Trades after ${r.lossMax} losses in a row</div>
+      <div class="disc-v" style="color:${col(after.net)}">${fmt(after.net)}</div>
+      <div class="disc-s">${after.n} trade${after.n!==1?"s":""}${after.n?` · ${Math.round(after.wins/after.n*100)}% win rate`:""}</div></div>`;
+    notes.push(`stop after ${r.lossMax} loss${r.lossMax>1?"es":""} in a row`);
+  }
+  if(!real.length){ el.innerHTML=""; return; }
+  el.innerHTML = `<div class="disc-grid">${cards}</div>
+  <div class="small-muted" style="margin:2px 2px 8px">Based on your current rules (${notes.join(" · ")}). Streaks reset daily and after any win.</div>`;
 }
 
 document.addEventListener("DOMContentLoaded", async ()=>{
