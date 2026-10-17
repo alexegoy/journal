@@ -1436,6 +1436,38 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
 .disc-card .disc-v{font-family:var(--font-mono);font-size:22px;font-weight:700;margin:6px 0 2px}
 .disc-card .disc-s{font-size:12px;color:var(--text-dim);line-height:1.5}
 </style>
+
+<style>
+/* ===== Warm-up tab ===== */
+#warmupChip{display:none;margin:8px 0 0}
+.wu-chip{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:99px;border:1px solid var(--border);background:var(--card);font-size:12px;cursor:pointer;color:var(--text-dim)}
+.wu-chip.ok{border-color:rgba(45,212,160,.5);color:var(--green)}
+.wu-chip.no{border-color:rgba(224,167,46,.5);color:var(--amber)}
+.wu-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.wu-title{font-size:20px;font-weight:800;font-family:var(--font-display)}
+.wu-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.wu-streak{font-family:var(--font-mono);font-weight:700;font-size:13px;padding:6px 12px;border:1px solid var(--border);border-radius:99px;background:var(--card)}
+.wu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.wu-card{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);padding:16px;cursor:pointer;transition:border-color .15s,transform .15s}
+.wu-card:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.wu-ic{font-size:24px}.wu-h{font-weight:800;margin-top:6px}.wu-s{font-size:12px;color:var(--text-dim);margin-top:3px;line-height:1.45}
+.wu-st{font-size:11px;color:var(--muted);margin-top:10px;font-family:var(--font-mono)}
+.wu-note{margin-top:14px;font-size:11px;color:var(--muted);line-height:1.5}
+.wu-panel{border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);padding:16px}
+.wu-bar{height:5px;border-radius:99px;background:var(--border);overflow:hidden;margin:8px 0 12px}
+.wu-bar>i{display:block;height:100%;background:var(--accent,var(--green));transition:width .1s linear}
+.wu-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text-dim)}
+.wu-actions{display:flex;gap:10px;margin-top:12px}.wu-actions .btn{flex:1;padding:12px;font-size:14px;font-weight:700}
+.wu-take{border-color:rgba(45,212,160,.6)!important;color:var(--green)!important}.wu-skip{border-color:rgba(255,93,122,.6)!important;color:var(--red)!important}
+.wu-fb{margin-top:12px;padding:10px 12px;border-radius:var(--radius-xs);font-size:13px;line-height:1.5}
+.wu-fb.good{background:var(--green-dim);border:1px solid rgba(45,212,160,.4)}.wu-fb.bad{background:var(--red-dim);border:1px solid rgba(255,93,122,.4)}
+.wu-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.wu-opts .btn{padding:14px;font-size:15px;font-family:var(--font-mono);font-weight:700}
+.wu-q{font-size:16px;line-height:1.5;font-weight:600;margin-top:6px}
+.wu-rate{display:flex;gap:6px;margin:6px 0 12px}.wu-rate .btn{flex:1}.wu-rate .btn.on{border-color:var(--green);color:var(--green)}
+.wu-banner{padding:14px;border-radius:var(--radius-sm);text-align:center;font-weight:800;font-size:16px;border:1px dashed var(--border-strong);color:var(--muted)}
+.wu-banner.go{border:1px solid var(--green);background:var(--green-dim);color:var(--green);animation:ruleIn .2s}
+.wu-big{font-family:var(--font-mono);font-size:34px;font-weight:800;text-align:center;margin:8px 0}
+</style>
 </head>
 <body class="light" data-scheme="rose">
 <script>
@@ -1472,6 +1504,8 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
   <!-- Daily trade-limit banner -->
   <div id="ruleBanner"></div>
 
+  <div id="warmupChip" onclick="switchTab('warmup')"></div>
+
   <!-- Tabs -->
   <div class="tabs">
     <div id="tabDashboard" class="tab active" onclick="switchTab('dashboard')">⚡ Dashboard</div>
@@ -1481,6 +1515,7 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
     <div id="tabStats" class="tab" onclick="switchTab('stats')">📊 Stats</div>
     <div id="tabProp" class="tab" onclick="switchTab('prop')">🏦 Prop Firm</div>
     <div id="tabNews" class="tab" onclick="switchTab('news')">📰 News</div>
+    <div id="tabWarmup" class="tab" onclick="switchTab('warmup')">🎯 Warm-up</div>
     <div id="tabConverter" class="tab" onclick="switchTab('converter')">💱 PHP</div>
   </div>
 
@@ -1762,6 +1797,15 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
     </div>
   </div>
 
+  <!-- Warm-up tab -->
+  <div id="warmupTab" style="display:none">
+    <div class="wu-head">
+      <div><div class="wu-title">🎯 Warm-up</div><div class="wu-sub">Get your head right before the session — like Aimlab, for trading.</div></div>
+      <div class="wu-streak" id="wuStreak"></div>
+    </div>
+    <div id="wuMain"></div>
+  </div>
+
   <!-- Stats tab -->
   <div id="statsTab" style="display:none">
     <div class="stats-page">
@@ -1839,6 +1883,8 @@ body[data-scheme="web"] .header-title,body[data-scheme="web"] .header-month{text
       <!-- Discipline -->
       <div class="ds-section-label">Discipline · Trading Rules</div>
       <div id="statsDiscipline"></div>
+      <div class="ds-section-label">Warm-up Impact</div>
+      <div id="statsWarmup"></div>
 
       <!-- Empty state -->
       <div id="statsEmpty" style="display:none" class="ds-empty">
@@ -2445,8 +2491,8 @@ function sundayOfWeekLocal(d){
 
 /* ===== Tabs ===== */
 function switchTab(name){
-  const tabs = ["dashboard","journal","charts","prop","watchlist","news","converter","stats"];
-  const elIds = { dashboard:"dashboardTab", journal:"journalTab", charts:"chartsTab", prop:"propTab", watchlist:"watchlistTab", news:"newsTab", converter:"converterTab", stats:"statsTab" };
+  const tabs = ["dashboard","journal","charts","prop","watchlist","news","converter","stats","warmup"];
+  const elIds = { dashboard:"dashboardTab", journal:"journalTab", charts:"chartsTab", prop:"propTab", watchlist:"watchlistTab", news:"newsTab", converter:"converterTab", stats:"statsTab", warmup:"warmupTab" };
   tabs.forEach(t=>{
     const el = document.getElementById(elIds[t]);
     if(t===name){
@@ -2466,6 +2512,8 @@ function switchTab(name){
   document.getElementById("tabNews").classList.toggle("active",name==="news");
   document.getElementById("tabConverter").classList.toggle("active",name==="converter");
   document.getElementById("tabStats").classList.toggle("active",name==="stats");
+  document.getElementById("tabWarmup").classList.toggle("active",name==="warmup");
+  if(name==="warmup") wuInit(); else if(typeof wuStop==="function") wuStop();
   if(name==="converter"){ fetchUSDPHP(); updateConverterPnlShortcut(); }
   if(name==="stats"){ populateStatsSymbolFilter(); renderStats(); }
   if(name==="charts")renderCharts();
@@ -4685,10 +4733,11 @@ function dsHero(icon, label, value, sub, colorCls, accentCls){
 function renderStats(){
   const t = getStatsFilteredTrades();
   try{ renderDisciplineStats(t); }catch(e){ console.warn(e); }
+  try{ renderWarmupStats(t); }catch(e){ console.warn(e); }
   const badge = document.getElementById("statsTradeCount");
   if(badge) badge.textContent = `${t.length} trade${t.length!==1?"s":""} · filtered`;
 
-  const ids = ["statsHero","statsPerformance","statsBreakdown","statsSizing","statsDirection","statsSymbolTable","statsNotable","statsStreaks","statsDiscipline"];
+  const ids = ["statsHero","statsPerformance","statsBreakdown","statsSizing","statsDirection","statsSymbolTable","statsNotable","statsStreaks","statsDiscipline","statsWarmup"];
   const empty = document.getElementById("statsEmpty");
 
   if(!t.length){
@@ -5675,6 +5724,279 @@ function renderDisciplineStats(list){
   <div class="small-muted" style="margin:2px 2px 8px">Based on your current rules (${notes.join(" · ")}). Streaks reset daily and after any win.</div>`;
 }
 
+
+/* ===================================================================
+   WARM-UP — ritual + Trade or Skip + Patience Hold + Risk Math Sprint
+   (charts are generated: trains speed, discipline and math — not your edge)
+   =================================================================== */
+const WU_KEY="warmupData";
+function wuLoad(){ try{ const d=JSON.parse(localStorage.getItem(WU_KEY)||"null"); if(d&&d.days){ d.best=d.best||{}; return d; } }catch(e){} return {days:{},best:{}}; }
+function wuSave(d){ try{ localStorage.setItem(WU_KEY,JSON.stringify(d)); }catch(e){} }
+function wuDayOf(d,date){ return d.days[date]||(d.days[date]={ritual:null,drills:0,scores:{}}); }
+function wuIsDone(day){ return !!(day && day.ritual && day.drills>0); }
+function wuIsDoneDate(date){ return wuIsDone(wuLoad().days[date]); }
+function wuStreak(){
+  const d=wuLoad(), dt=new Date(); let n=0;
+  if(!wuIsDone(d.days[localDateStr(dt)])) dt.setDate(dt.getDate()-1);
+  for(let g=0;g<400;g++){
+    const wd=dt.getDay();
+    if(wd===0||wd===6){ dt.setDate(dt.getDate()-1); continue; } // weekends never break it
+    if(wuIsDone(d.days[localDateStr(dt)])){ n++; dt.setDate(dt.getDate()-1); } else break;
+  }
+  return n;
+}
+function wuRenderChip(){
+  const el=document.getElementById("warmupChip"); if(!el) return;
+  const done=wuIsDoneDate(localDateStr()), st=wuStreak();
+  el.style.display="block";
+  el.innerHTML = done ? `<span class="wu-chip ok">🎯 Warmed up today${st?` · 🔥 ${st}`:""}</span>`
+                      : `<span class="wu-chip no">⚠ Not warmed up yet${st?` · 🔥 ${st}`:""} — open Warm-up</span>`;
+  const sEl=document.getElementById("wuStreak"); if(sEl) sEl.textContent = st?`🔥 ${st}-day streak`:"No streak yet";
+}
+const wuRand=(a,b)=>a+Math.random()*(b-a);
+const wuPick=a=>a[Math.floor(Math.random()*a.length)];
+const wuC=(o,c,h,l)=>({o,c,h:Math.max(h,o,c),l:Math.min(l,o,c)});
+let wuT=null, wuG=null;
+function wuStop(){ if(wuT){clearInterval(wuT);wuT=null;} wuG=null; document.removeEventListener("keydown",wuKey); }
+function wuMain(){ return document.getElementById("wuMain"); }
+function wuInit(){ wuMenu(); }
+
+function wuMenu(){
+  wuStop(); wuRenderChip();
+  const d=wuLoad(), day=d.days[localDateStr()]||{ritual:null,drills:0,scores:{}}, b=d.best;
+  const card=(ic,h,sub,st,fn)=>`<div class="wu-card" onclick="${fn}"><div class="wu-ic">${ic}</div><div class="wu-h">${h}</div><div class="wu-s">${sub}</div><div class="wu-st">${st}</div></div>`;
+  const sc=k=>`Best ${b[k]!=null?b[k]:"—"}${day.scores[k]!=null?` · Today ${day.scores[k]}`:""}`;
+  wuMain().innerHTML=`<div class="wu-grid">
+    ${card("🧘","Pre-session ritual","Mood check, read your rules, 20s breathing. ~45 sec.",day.ritual?"✅ Done today":"Not done yet","wuRitual()")}
+    ${card("⚡","Trade or Skip","10 generated H1 charts (S/R, PDH/PDL, sweeps, FVG, OB). Take or skip in 6s.",sc("skip"),"wuSkipStart()")}
+    ${card("🧊","Patience Hold","45s live feed. Only enter on the A+ signal — ignore the fireworks.",sc("pat"),"wuPatStart()")}
+    ${card("🧮","Risk Math Sprint","10 quick questions: lot size (XAUUSD, NAS100), R:R, risk $.",sc("math"),"wuMathStart()")}
+  </div>
+  <div class="wu-note">A warm-up counts for the day once you finish the ritual <b>and</b> at least one drill. Weekends don't break your streak. Charts are randomly generated, so these drills train speed, discipline and math — they don't predict the market.</div>`;
+}
+function wuFinish(key,score,summary){
+  wuStop();
+  const d=wuLoad(), day=wuDayOf(d,localDateStr());
+  score=Math.max(0,Math.round(score));
+  const prevBest=d.best[key]; const newBest = prevBest==null||score>prevBest;
+  if(newBest) d.best[key]=score;
+  day.scores[key]=Math.max(day.scores[key]||0,score); day.drills=(day.drills||0)+1;
+  wuSave(d); wuRenderChip();
+  const again={skip:"wuSkipStart()",pat:"wuPatStart()",math:"wuMathStart()"}[key];
+  wuMain().innerHTML=`<div class="wu-panel" style="text-align:center">
+    <div class="wu-sub">Result</div><div class="wu-big">${score}</div>
+    <div class="wu-s" style="font-size:13px">${summary}</div>
+    ${newBest?`<div class="wu-fb good" style="margin-top:12px">🏆 New personal best!</div>`:`<div class="wu-sub" style="margin-top:10px">Best: ${d.best[key]}</div>`}
+    <div class="wu-actions"><button class="btn btn-primary" onclick="${again}">Play again</button><button class="btn" onclick="wuMenu()">Back</button></div></div>`;
+}
+function wuBackBtn(){ return `<button class="btn" style="padding:4px 10px;font-size:11px" onclick="wuMenu()">✕ Exit</button>`; }
+
+/* ---------- Pre-session ritual ---------- */
+function wuRitual(){
+  wuStop(); wuG={mode:"ritual",r:{mood:0,sleep:0,focus:0}};
+  const r=getTradeRule(), rules=[];
+  if(r.enabled) rules.push(`Max <b>${r.max}</b> trades today`);
+  if(r.lossEnabled) rules.push(`Stop after <b>${r.lossMax}</b> loss${r.lossMax>1?"es":""} in a row`);
+  rules.push("Only A+ setups: H1 S/R · OB · PDH/PDL · liquidity sweep · FVG");
+  const rate=(k,label)=>`<div class="wu-row"><b>${label}</b><span>1 = low · 5 = great</span></div><div class="wu-rate" id="wuR_${k}">${[1,2,3,4,5].map(n=>`<button class="btn" onclick="wuRate('${k}',${n})">${n}</button>`).join("")}</div>`;
+  wuMain().innerHTML=`<div class="wu-panel"><div class="wu-row"><b style="font-size:15px">🧘 Pre-session ritual</b>${wuBackBtn()}</div>
+    <div style="margin-top:12px">${rate("mood","Mood")}${rate("sleep","Sleep quality")}${rate("focus","Focus")}</div>
+    <div class="wu-row" style="margin-top:4px"><b>Your rules today</b></div>
+    <ul style="margin:6px 0 0 18px;font-size:13px;line-height:1.7">${rules.map(x=>`<li>${x}</li>`).join("")}</ul>
+    <label class="rule-check" style="display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px;cursor:pointer"><input type="checkbox" id="wuRead" onchange="wuRitualSync()"> I've read my rules and I'll follow them</label>
+    <div class="wu-row" style="margin-top:14px"><b>Breathing (optional)</b><button class="btn" id="wuBreathBtn" onclick="wuBreath()">Start 20s</button></div>
+    <div class="wu-big" id="wuBreathTxt" style="font-size:20px;min-height:34px"></div>
+    <div id="wuRitualMsg"></div>
+    <div class="wu-actions"><button class="btn btn-primary" id="wuRitualGo" disabled onclick="wuRitualDone()">✅ Mark ready</button></div></div>`;
+}
+function wuRate(k,n){
+  wuG.r[k]=n;
+  document.querySelectorAll("#wuR_"+k+" .btn").forEach((b,i)=>b.classList.toggle("on",i+1===n));
+  wuRitualSync();
+}
+function wuRitualSync(){
+  const r=wuG.r, ok=r.mood&&r.sleep&&r.focus&&document.getElementById("wuRead").checked;
+  document.getElementById("wuRitualGo").disabled=!ok;
+}
+function wuBreath(){
+  if(wuT) return;
+  let t=0; const phases=["Inhale…","Hold…","Exhale…","Hold…"], el=document.getElementById("wuBreathTxt");
+  wuT=setInterval(()=>{
+    t++; if(t>20){ clearInterval(wuT); wuT=null; if(el) el.textContent="Done. Nice."; return; }
+    el.textContent=`${phases[Math.floor((t-1)/4)%4]} ${4-((t-1)%4)}`;
+  },1000);
+  el.textContent="Inhale… 4";
+}
+function wuRitualDone(){
+  const r=Object.assign({},wuG.r,{ts:Date.now()});
+  const d=wuLoad(), day=wuDayOf(d,localDateStr()); day.ritual=r; wuSave(d); wuRenderChip();
+  const low = r.mood<=2||r.sleep<=2||r.focus<=2;
+  document.getElementById("wuRitualMsg").innerHTML = low
+    ? `<div class="wu-fb bad">Low energy flagged. Consider smaller size, fewer trades, or sitting today out.</div>`
+    : `<div class="wu-fb good">You're ready. Now play a drill or two to get sharp.</div>`;
+  document.getElementById("wuRitualGo").textContent="Back to menu";
+  document.getElementById("wuRitualGo").onclick=wuMenu;
+}
+
+/* ---------- Trade or Skip: generated H1 setups ---------- */
+function wuGenSetup(){
+  const kind=wuPick(["sr","pdl","sweep","fvg","ob"]), valid=Math.random()<0.5, short=Math.random()<0.5;
+  const L=100, C=[], lines=[], zones=[];
+  const pull=(from,to,n)=>{ let q=from; for(let i=0;i<n;i++){ const nx=i===n-1?to:q+(to-from)/n+wuRand(-.2,.2); C.push(wuC(q,nx,Math.max(q,nx)+wuRand(.1,.4),Math.min(q,nx)-wuRand(.1,.4))); q=nx; } };
+  if(kind==="fvg"||kind==="ob"){
+    let q=L+8; for(let i=0;i<22;i++){ const o=q,c=o+wuRand(-1,.8)-.08; C.push(wuC(o,c,Math.max(o,c)+wuRand(.1,.6),Math.min(o,c)-wuRand(.1,.6))); q=c; }
+    const P=q;
+    if(kind==="ob"){
+      const from=C.length; C.push(wuC(P,P-1.6,P+.3,P-1.9)); C.push(wuC(P-1.6,P+1.8,P+2.1,P-1.8)); C.push(wuC(P+1.8,P+5.2,P+5.5,P+1.6));
+      const zl=P-1.6, zh=P, tgt=zh+.6; pull(P+5.2,tgt,3);
+      zones.push({lo:zl,hi:zh,from,label:"Bullish OB"});
+      C.push(valid?wuC(tgt,zh+2,zh+2.3,zl+.3):wuC(tgt,zl-1.5,tgt+.2,zl-1.8));
+    } else {
+      const from=C.length; C.push(wuC(P,P+.5,P+.8,P-.3)); C.push(wuC(P+.5,P+5.5,P+5.7,P+.3)); C.push(wuC(P+5.5,P+6,P+6.4,P+3.4));
+      const lo=P+.8, hi=P+3.4, tgt=hi+1; pull(P+6,tgt,3);
+      zones.push({lo,hi,from,label:"Bullish FVG"});
+      C.push(valid?wuC(tgt,hi+1.6,hi+1.9,lo+(hi-lo)*.4):wuC(tgt,lo-1.2,tgt+.2,lo-1.5));
+    }
+  } else {
+    const n=28,amp=7; let q=L+wuRand(2,5);
+    for(let i=0;i<n;i++){ const o=q; let c=o+wuRand(-1.4,1.4)+(L+amp/2+1-o)*.12; c=Math.min(Math.max(c,L+1.2),L+amp);
+      let lo=Math.min(o,c)-wuRand(.1,.7); if(kind==="pdl") lo=Math.max(lo,L+.5); else lo=Math.max(lo,L+.05);
+      C.push(wuC(o,c,Math.max(o,c)+wuRand(.1,.7),lo)); q=c; }
+    if(kind!=="pdl"){ [5,12,19].slice(0,kind==="sr"?3:2).forEach(i=>{ C[i].l=kind==="sweep"?L+wuRand(-.05,.05):L; }); }
+    const appr = kind==="sr"?L+1.2:L+.9; C.push(wuC(q,appr,q+.3,appr-.3));
+    if(kind==="sr") C.push(valid?wuC(appr,L+2.8,L+3.1,L+.05):wuC(appr,L-1.6,appr+.2,L-1.9));
+    else C.push(valid?wuC(appr,L+1.9,L+2.1,L-1):wuC(appr,L-1.2,appr+.2,L-1.8));
+    lines.push({y:L,label:kind==="sr"?"H1 support":kind==="pdl"?"PDL":"Equal lows"});
+  }
+  const why={
+    sr:[ "Clean rejection at a level tested several times — wick held it, closed strong.","Closed through the level with a big body: that's a breakdown, not a bounce." ],
+    pdl:[ "Swept the PDL then closed back above it: liquidity grab with a reclaim.","Closed below the PDL with momentum — acceptance below, not a sweep." ],
+    sweep:[ "Equal lows swept and closed back above: stops taken, then reclaimed.","Wick under the equal lows but it closed below — no reclaim, no trade." ],
+    fvg:[ "Price tapped the FVG and rejected, closing back above the gap.","Gap fully filled and closed through — the FVG failed." ],
+    ob:[ "Price tapped the bullish OB and closed back above it.","Closed below the order block — it's invalidated." ]
+  }[kind][valid?0:1];
+  let text=why, ls=lines.map(l=>({...l})), zs=zones.map(z=>({...z})), cs=C;
+  if(short){
+    const f=y=>2*L-y;
+    cs=C.map(c=>({o:f(c.o),c:f(c.c),h:f(c.l),l:f(c.h)}));
+    ls=ls.map(l=>({y:f(l.y),label:l.label.replace("support","resistance").replace("PDL","PDH").replace("lows","highs")}));
+    zs=zs.map(z=>({lo:f(z.hi),hi:f(z.lo),from:z.from,label:z.label.replace("Bullish","Bearish")}));
+    text=why.replace(/above/g,"@@").replace(/below/g,"above").replace(/@@/g,"below").replace("bullish","bearish").replace(/lows/g,"highs").replace("PDL","PDH").replace("bounce","rejection");
+  }
+  return {candles:cs,lines:ls,zones:zs,valid,short,kind,why:text};
+}
+function wuChart(S){
+  const W=660,H=280,P=12,n=S.candles.length,cw=W/n; let mn=1e9,mx=-1e9;
+  S.candles.forEach(c=>{mn=Math.min(mn,c.l);mx=Math.max(mx,c.h);}); S.lines.forEach(l=>{mn=Math.min(mn,l.y-.3);mx=Math.max(mx,l.y+.3);});
+  const Y=v=>H-P-(v-mn)/(mx-mn)*(H-2*P); let g="";
+  S.zones.forEach(z=>{ g+=`<rect x="${z.from*cw}" y="${Y(z.hi)}" width="${W-z.from*cw}" height="${Math.max(2,Y(z.lo)-Y(z.hi))}" fill="rgba(139,92,246,.22)" stroke="rgba(139,92,246,.6)"/><text x="${z.from*cw+4}" y="${Y(z.hi)-4}" font-size="11" fill="currentColor">${z.label}</text>`; });
+  S.lines.forEach(l=>{ g+=`<line x1="0" x2="${W}" y1="${Y(l.y)}" y2="${Y(l.y)}" stroke="#e0a72e" stroke-dasharray="5 4"/><text x="4" y="${Y(l.y)-4}" font-size="11" fill="#e0a72e">${l.label}</text>`; });
+  S.candles.forEach((c,i)=>{ const x=i*cw+cw/2,col=c.c>=c.o?"#2dd4a0":"#ff5d7a";
+    g+=`<line x1="${x}" x2="${x}" y1="${Y(c.h)}" y2="${Y(c.l)}" stroke="${col}"/><rect x="${x-cw*.32}" y="${Y(Math.max(c.o,c.c))}" width="${cw*.64}" height="${Math.max(1.5,Math.abs(Y(c.o)-Y(c.c)))}" fill="${col}"/>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text-dim)">${g}</svg>`;
+}
+const WU_SKIP_TIME=6, WU_SKIP_ROUNDS=10;
+function wuSkipStart(){ wuStop(); wuG={mode:"skip",round:0,score:0,right:0,S:null,left:0,answered:false}; document.addEventListener("keydown",wuKey); wuSkipNext(); }
+function wuSkipNext(){
+  const g=wuG; if(!g) return;
+  if(g.round>=WU_SKIP_ROUNDS){ wuFinish("skip",g.score,`${g.right}/${WU_SKIP_ROUNDS} correct`); return; }
+  g.round++; g.S=wuGenSetup(); g.left=WU_SKIP_TIME; g.answered=false;
+  const sym=wuPick(["XAUUSD","NAS100"]);
+  wuMain().innerHTML=`<div class="wu-panel"><div class="wu-row"><span><b>${sym} · H1</b> — idea: <b>${g.S.short?"SHORT 🔻":"LONG 🔺"}</b></span><span>Round ${g.round}/${WU_SKIP_ROUNDS} · Score ${g.score}</span>${wuBackBtn()}</div>
+    <div class="wu-bar"><i id="wuBar" style="width:100%"></i></div>${wuChart(g.S)}
+    <div class="wu-actions" id="wuAct"><button class="btn wu-take" onclick="wuSkipAns(true)">✅ TAKE (T)</button><button class="btn wu-skip" onclick="wuSkipAns(false)">⏭ SKIP (S)</button></div><div id="wuFb"></div></div>`;
+  wuT=setInterval(()=>{ g.left-=.1; const b=document.getElementById("wuBar"); if(b) b.style.width=Math.max(0,g.left/WU_SKIP_TIME*100)+"%"; if(g.left<=0) wuSkipAns(false,true); },100);
+}
+function wuSkipAns(take,timeout){
+  const g=wuG; if(!g||g.answered) return; g.answered=true; if(wuT){clearInterval(wuT);wuT=null;}
+  const ok = take===g.S.valid; let pts=0;
+  if(ok){ pts=100+Math.round(Math.max(0,g.left)*10); g.right++; } else if(take) pts=-50;
+  g.score+=pts;
+  const msg = ok ? `✅ +${pts}. ${g.S.why}` : take ? `❌ ${pts}. Bad trade taken. ${g.S.why}` : `❌ Missed an A+ setup${timeout?" (time ran out)":""}. ${g.S.why}`;
+  document.getElementById("wuFb").innerHTML=`<div class="wu-fb ${ok?"good":"bad"}">${msg}</div>`;
+  document.getElementById("wuAct").innerHTML=`<button class="btn btn-primary" onclick="wuSkipNext()">${g.round>=WU_SKIP_ROUNDS?"See result":"Next →"} (Space)</button>`;
+}
+
+/* ---------- Patience Hold ---------- */
+function wuPatStart(){
+  wuStop(); document.addEventListener("keydown",wuKey);
+  const dur=450, ev=[]; let t=30;
+  while(t<dur-30){ ev.push({t,type:ev.length%5===1||ev.length%5===3?"valid":"decoy"}); t+=wuRand(30,52); }
+  wuG={mode:"pat",tick:0,dur,ev,price:100,hist:Array(80).fill(100),hits:0,imp:0,miss:0,score:0,win:null,jump:0,flash:0};
+  wuMain().innerHTML=`<div class="wu-panel"><div class="wu-row"><b>🧊 Patience Hold</b><span id="wuPatStat"></span>${wuBackBtn()}</div><div class="wu-bar"><i id="wuBar" style="width:0%"></i></div>
+    <div id="wuPatChart"></div><div class="wu-banner" id="wuPatBan" style="margin-top:10px">Waiting for an A+ signal…</div>
+    <div class="wu-actions"><button class="btn btn-primary" onclick="wuPatPress()">ENTER TRADE (Space)</button></div></div>`;
+  wuT=setInterval(wuPatTick,100);
+}
+function wuPatTick(){
+  const g=wuG; if(!g) return; g.tick++;
+  const e=g.ev.find(x=>!x.done&&g.tick>=x.t);
+  if(e){ e.done=true; if(e.type==="valid"){ g.win={until:g.tick+25,hit:false}; } else { g.jump=wuPick([-1,1])*3.2; g.flash=8; } }
+  if(g.win && g.tick>g.win.until){ if(!g.win.hit){ g.miss++; g.score-=30; } g.win=null; }
+  let d=wuRand(-.25,.25); if(g.jump){ d+=g.jump/4; g.jump*=.5; if(Math.abs(g.jump)<.2) g.jump=0; } if(g.win) d+=.05;
+  g.price+=d; g.hist.push(g.price); if(g.hist.length>80) g.hist.shift(); if(g.flash>0) g.flash--;
+  const mn=Math.min(...g.hist),mx=Math.max(...g.hist,mn+1),pts=g.hist.map((v,i)=>`${i*8.2},${110-(v-mn)/(mx-mn)*100}`).join(" ");
+  document.getElementById("wuPatChart").innerHTML=`<svg viewBox="0 0 656 120" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px"><polyline points="${pts}" fill="none" stroke="${g.flash?"#ff5d7a":"#2dd4a0"}" stroke-width="2"/></svg>`;
+  const ban=document.getElementById("wuPatBan"); ban.className="wu-banner"+(g.win?" go":""); ban.textContent=g.win?"🟢 A+ SETUP — enter now!":"Waiting for an A+ signal…";
+  document.getElementById("wuBar").style.width=(g.tick/g.dur*100)+"%";
+  document.getElementById("wuPatStat").textContent=`✅ ${g.hits}  ⚡ ${g.imp} impulsive  ⏳ ${g.miss} missed`;
+  if(g.tick>=g.dur){ if(g.win&&!g.win.hit){ g.miss++; g.score-=30; } wuFinish("pat",g.score,`${g.hits} A+ entries · ${g.imp} impulsive clicks · ${g.miss} missed`); }
+}
+function wuPatPress(){
+  const g=wuG; if(!g||g.mode!=="pat") return;
+  if(g.win&&!g.win.hit){ g.win.hit=true; g.hits++; g.score+=100+Math.max(0,(g.win.until-g.tick))*2; }
+  else { g.imp++; g.score-=60; }
+}
+
+/* ---------- Risk Math Sprint ---------- */
+function wuMathQ(){
+  const t=Math.floor(Math.random()*6); let q,ans,f=v=>String(v),pool=[];
+  if(t===0){ const lot=wuPick([.05,.1,.2,.25,.5]),stop=wuPick([2,4,5,8,10]),risk=Math.round(lot*stop*100); q=`XAUUSD · risk $${risk}, stop ${stop}.00 pts ($1 move = $100 per 1.0 lot). Lot size?`; ans=lot; f=v=>v.toFixed(2)+" lot"; pool=[lot*2,lot/2,lot*1.5,lot*4,lot/4]; }
+  else if(t===1){ const lot=wuPick([.1,.2,.5,1,2]),stop=wuPick([10,20,25,40,50]),risk=Math.round(lot*stop); q=`NAS100 · risk $${risk}, stop ${stop} pts ($1 per point per 1.0 lot). Lot size?`; ans=lot; f=v=>v.toFixed(2)+" lot"; pool=[lot*2,lot/2,lot*10,lot/10,lot*1.5]; }
+  else if(t===2){ const r=wuPick([5,8,10,12,20]),k=wuPick([1.5,2,3,4]),e=wuPick([2350,2410,2680,18450]); q=`Entry ${e}, stop ${e-r}, target ${e+r*k}. What's the R:R?`; ans=k; f=v=>"1:"+v; pool=[k+1,k-.5,k*2,k+.5,1]; }
+  else if(t===3){ const a=wuPick([5000,10000,25000,50000]),pc=wuPick([.5,1,2]); q=`$${a.toLocaleString()} account, risking ${pc}% per trade. Risk in dollars?`; ans=a*pc/100; f=v=>"$"+v; pool=[ans*2,ans/2,ans*10,ans/10,ans*1.5]; }
+  else if(t===4){ const r=wuPick([50,100,200]),k=wuPick([2,3,4]); q=`You risked $${r} on a ${k}R target and it hit. Profit?`; ans=r*k; f=v=>"$"+v; pool=[r*(k+1),r*(k-1),r,r*k*2,r/2*k]; }
+  else { const k=wuPick([1,2,3,4]); q=`Minimum win rate to break even at 1:${k} R:R (ignoring costs)?`; ans=Math.round(100/(1+k)*10)/10; f=v=>v+"%"; pool=[50,33.3,25,20,40,66.7].filter(v=>v!==ans); }
+  const opts=[ans]; pool.sort(()=>Math.random()-.5).forEach(v=>{ if(opts.length<4 && v>0 && !opts.some(o=>f(o)===f(v))) opts.push(v); });
+  return {q,ans,opts:opts.sort(()=>Math.random()-.5),f};
+}
+const WU_MATH_TIME=12, WU_MATH_ROUNDS=10;
+function wuMathStart(){ wuStop(); wuG={mode:"math",round:0,score:0,right:0,answered:false}; wuMathNext(); }
+function wuMathNext(){
+  const g=wuG; if(!g) return;
+  if(g.round>=WU_MATH_ROUNDS){ wuFinish("math",g.score,`${g.right}/${WU_MATH_ROUNDS} correct`); return; }
+  g.round++; g.Q=wuMathQ(); g.left=WU_MATH_TIME; g.answered=false;
+  wuMain().innerHTML=`<div class="wu-panel"><div class="wu-row"><span>Question ${g.round}/${WU_MATH_ROUNDS}</span><span>Score ${g.score}</span>${wuBackBtn()}</div><div class="wu-bar"><i id="wuBar" style="width:100%"></i></div>
+    <div class="wu-q">${g.Q.q}</div><div class="wu-opts">${g.Q.opts.map((o,i)=>`<button class="btn" onclick="wuMathAns(${i})">${g.Q.f(o)}</button>`).join("")}</div><div id="wuFb"></div></div>`;
+  wuT=setInterval(()=>{ g.left-=.1; const b=document.getElementById("wuBar"); if(b) b.style.width=Math.max(0,g.left/WU_MATH_TIME*100)+"%"; if(g.left<=0) wuMathAns(-1); },100);
+}
+function wuMathAns(i){
+  const g=wuG; if(!g||g.answered) return; g.answered=true; if(wuT){clearInterval(wuT);wuT=null;}
+  const ok=i>=0&&g.Q.opts[i]===g.Q.ans; if(ok){ g.right++; g.score+=100+Math.round(Math.max(0,g.left)*10); }
+  document.querySelectorAll(".wu-opts .btn").forEach(b=>b.disabled=true);
+  document.getElementById("wuFb").innerHTML=`<div class="wu-fb ${ok?"good":"bad"}">${ok?"✅ Correct":"❌ "+(i<0?"Time's up. ":"")+"Answer: "+g.Q.f(g.Q.ans)}</div><div class="wu-actions"><button class="btn btn-primary" onclick="wuMathNext()">${g.round>=WU_MATH_ROUNDS?"See result":"Next →"} (Space)</button></div>`;
+}
+function wuKey(e){
+  const g=wuG; if(!g) return; const k=e.key.toLowerCase();
+  if(g.mode==="skip"){ if(g.answered){ if(k===" "||k==="enter"){e.preventDefault();wuSkipNext();} } else if(k==="t"||k==="arrowright") wuSkipAns(true); else if(k==="s"||k==="arrowleft") wuSkipAns(false); }
+  else if(g.mode==="pat"&&k===" "){ e.preventDefault(); wuPatPress(); }
+  else if(g.mode==="math"&&g.answered&&(k===" "||k==="enter")){ e.preventDefault(); wuMathNext(); }
+}
+document.addEventListener("keydown",wuKey);
+
+/* ---------- Stats: warmed-up days vs not ---------- */
+function renderWarmupStats(list){
+  const el=document.getElementById("statsWarmup"); if(!el) return;
+  const real=list.filter(t=>t.entryType!=="watchlist"), d=wuLoad();
+  if(!Object.values(d.days).some(wuIsDone)){ el.innerHTML=`<div class="small-muted" style="padding:6px 2px">Finish a warm-up (ritual + one drill) on a few trading days to see how it affects your results.</div>`; return; }
+  const byDay={}; real.forEach(t=>{ (byDay[t.date]=byDay[t.date]||[]).push(t); });
+  const A={days:0,net:0,w:0,n:0},B={days:0,net:0,w:0,n:0};
+  Object.entries(byDay).forEach(([date,arr])=>{ const o=wuIsDone(d.days[date])?A:B; o.days++; o.n+=arr.length; o.w+=arr.filter(t=>t.result==="win").length; o.net+=arr.reduce((s,t)=>s+netPnl(t),0); });
+  const fmt=v=>(v>=0?"+":"-")+"$"+Math.abs(v).toFixed(2), col=v=>v>0?"var(--green)":v<0?"var(--red)":"var(--text)";
+  const card=(h,o)=>`<div class="disc-card"><div class="disc-h">${h}</div><div class="disc-v" style="color:${col(o.net)}">${fmt(o.net)}</div><div class="disc-s">${o.days} day${o.days!==1?"s":""} · avg ${fmt(o.days?o.net/o.days:0)}/day${o.n?` · ${Math.round(o.w/o.n*100)}% win rate`:""}</div></div>`;
+  el.innerHTML=`<div class="disc-grid">${card("Days you warmed up",A)}${card("Days you didn't",B)}</div><div class="small-muted" style="margin:2px 2px 8px">Small samples are noisy — look at it over a month or more, not a few days.</div>`;
+}
+
 document.addEventListener("DOMContentLoaded", async ()=>{
   const themeBtn=document.getElementById("themeBtn");
   if(themeBtn) themeBtn.textContent=document.body.classList.contains("light")?"🌙":"☀️";
@@ -5696,8 +6018,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   }
 
   renderFavoritesDropdown();renderWeekdays();renderCalendar();
-  renderRuleBanner();
-  setInterval(renderRuleBanner, 60000); // picks up midnight rollover
+  renderRuleBanner(); wuRenderChip();
+  setInterval(()=>{renderRuleBanner();wuRenderChip();}, 60000); // picks up midnight rollover
   switchTab("dashboard");
   updateStorageMeter();
   // Re-render dashboard after the first paint so canvases have real dimensions
